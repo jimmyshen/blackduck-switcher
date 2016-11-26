@@ -9,6 +9,10 @@ import android.content.Context;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.msgpack.jackson.dataformat.MessagePackFactory;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -31,14 +35,12 @@ public class RemoteTaskService extends IntentService {
 
     private static final String TAG = "RemoteTaskService";
     private static final UUID SERVICE_UUID = UUID.fromString("7f759fe2-b22a-11e6-ba35-37c9859e1514");
-    private static final String SERVICE_CHARSET = "UTF8";
 
     private class TaskServiceConnection extends Thread {
 
         private final BluetoothDevice device;
         @Nullable private BluetoothSocket socket;
-        @Nullable private InputStreamReader reader;
-        @Nullable private OutputStreamWriter writer;
+        private final ObjectMapper objectMapper = new ObjectMapper(new MessagePackFactory());
 
         TaskServiceConnection(BluetoothDevice device) {
             this.device = device;
@@ -46,12 +48,10 @@ public class RemoteTaskService extends IntentService {
 
         @Override
         public void run() {
-            socket = connectSocket(device);
+            socket = connectDevice();
             if (socket != null) {
                 try {
-                    writer = new OutputStreamWriter(socket.getOutputStream(), SERVICE_CHARSET);
-                    reader = new InputStreamReader(socket.getInputStream(), SERVICE_CHARSET);
-                } catch (IOException e) {
+                    int noop;
                 } finally {
                     try {
                         socket.close();
@@ -63,7 +63,7 @@ public class RemoteTaskService extends IntentService {
         }
 
         @Nullable
-        private static BluetoothSocket connectSocket(BluetoothDevice device) {
+        private BluetoothSocket connectDevice() {
             try {
                 BluetoothSocket socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
                 socket.connect();
