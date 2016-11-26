@@ -11,91 +11,157 @@ SERVICE_NAME = 'BlackDuckTaskService'
 SERVICE_UUID = '7f759fe2-b22a-11e6-ba35-37c9859e1514'
 
 
+class Status:
+    OK = 'ok'
+    CLIENT_ERROR = 'client-error'
+    SERVER_ERROR = 'server-error'
+
+class Command:
+    LIST_TASKS = 'list_tasks'
+    LIST_UPDATED_TASKS = 'list_updated_tasks'
+    BATCHGET_ICONS = 'batchget_icons'
+    ACTIVATE_TASK = 'activate_task'
+
+
+class Context(object):
+    __slots__ = ['request_id', 'command', 'screen_manager']
+
+    def __init__(self, request_id, command, screen_manager):
+        self.request_id = request_id
+        self.command = command
+        self.screen_manager
+
+
+class Handler(object):
+    def __init__(self, context):
+        self.context = context
+
+    def response(self, status, **kwargs):
+        response = {'status': status, 'request_id': context.request_id}
+        response.update(kwargs)
+        return response
+
+    def client_error_response(self, msg, *fmtargs):
+        if fmtargs:
+            msg = msg % fmtargs
+
+        log.error(msg)
+        return self.response(Status.CLIENT_ERROR, error=msg)
+
+    def server_error_response(self, exc, msg, *fmtargs):
+        if fmtargs:
+            msg = msg % fmtargs
+
+        log.exception(msg, exc_info=exc)
+        return self.response(Status.SERVER_ERROR, error=': '.join([msg, exc.message]))
+
+    def ok_response(self, payload=None):
+        return self.response(Status.OK, data=payload or {})
+
+    def handle(self, payload):
+        raise NotImplementedError()
+
+
+class BlackHoleHandler(Handler):
+    def __init__(self, context):
+        super(BlackHoleHandler, self).__init__(context)
+
+    def handle(self, payload):
+        return self.client_error_response('Unrecognized command.')
+
+
+class ListTasksHandler(Handler):
+    def __init__(self, context):
+        super(ListTasksHandler, self).__init__(context)
+
+    def handle(self, payload):
+        try:
+            return self.ok_response({'tasks': self.context.screen_manager.list_tasks()})
+        except Exception as e:
+            return self.server_error_response(e, 'Could not list tasks')
+
+
+class ListUpdatedTasksHandler(Handler):
+    def __init__(self, context):
+        super(ListUpdatedTasksHandler, self).__init__(context)
+
+    def handle(self, payload):
+        if 'last_update_ts' not in payload:
+            return self.client_error_response('Missing "last_update_ts" in payload.')
+
+        try:
+            client_ts = long(payload['last_update_ts'])
+            tasks = []
+            for task in self.context.screen_manager.list_tasks():
+                if task['last_update_ts'] > client_ts:
+                    tasks.append(task)
+
+            return self.ok_response({'tasks': tasks})
+        except Exception as e:
+            return self.server_error_response(e, 'Could not get task updates since %s', payload['last_update_ts'])
+
+
+class BatchGetIconsHandler(Handler):
+    def __init__(self, context):
+        super(BatchGetIconsHandler, self).__init__(context)
+
+    def handle(self, payload):
+        if 'icon_ids' not in payload:
+            return self.client_error_response('Missing "icon_ids" in payload.')
+
+        try:
+            icons = [self.screen_manager.get_icon(icon_id) for icon_id in payload['icon_ids']]
+            return self.ok_response({'icons': icons})
+        except Exception as e:
+            return self.server_error_response(e, 'Could not get icon with ID %s', payload['icon_id'])
+
+
+class ActivateTaskHandler(Handler):
+    def __init__(self, context):
+        super(ActivateTaskHandler, self).__init__(context)
+
+    def handler(self, payload):
+        if 'task_id' not in payload:
+            return self.client_error_response('Missing "task_id" in payload.')
+
+        try:
+            task_id = payload['task_id']
+            self.context.screen_manager.activate_task(task_id)
+            return self.ok_response()
+        except Exception as e:
+            return self.server_error_response(e, 'Could not activate task with ID %s', payload['task_id'])
+
+
+class HandlerFactory(object):
+    def __init__(self):
+        self.handlers = {
+            Command.LIST_TASKS: ListTasksHandler,
+            Command.LIST_UPDATED_TASKS: ListUpdatedTasksHandler,
+            Command.BATCHGET_ICONS: BatchGetIconHandler,
+            Command.ACTIVATE_TASK: ActivateTaskHandler,
+        }
+
+    def create(self, command_name, request_id):
+        builder = self.handlers.get(command_name, BlackHoleHandler)
+        return builder(request_id)
+
+
 class BluetoothService(Thread):
     def __init__(self, screen_manager):
         super(BluetoothService, self).__init__(name='BluetoothService')
         self.daemon = True
         self.screen_manager = screen_manager
-        self.handlers = {
-            'list_tasks': self._handle_list_tasks,
-            'list_updated_tasks': self._handle_list_updated_tasks,
-            'batchget_icons': self._handle_batchget_icons,
-            'activate_task': self._handle_activate_task,
-        }
-
-    def _make_response(self, status, **kwargs):
-        response = {'status': status}
-        response.update(kwargs)
-        return response
-
-    def _make_client_error_response(self, msg, *fmtargs):
-        if fmtargs:
-            msg = msg % fmtargs
-
-        log.error(msg)
-        return _make_response('client-error', error=msg)
-
-    def _make_server_error_response(self, exc, msg, *fmtargs):
-        if fmtargs:
-            msg = msg % fmtargs
-
-        log.exception(msg, exc_info=exc)
-        return _make_response('server-error', error=': '.join([msg, exc.message]))
-
-    def _make_ok_response(self, payload=None):
-        return _make_response('ok', data=payload or {})
+        self.handler_factory = HandlerFactory()
 
     def handle_message(self, msg):
         if 'command' not in msg:
-            return _make_client_error_response('Missing "command" in message.')
-        elif msg['command'] not in handlers:
-            return _make_client_error_response('Received unrecognized command "%s"', msg['command'])
+            return client_error_response('Missing "command" in message.')
         else:
+            command = msg['command']
+            request_id = msg.get('request_id', 0xDEADBEEF)
             payload = msg.get('payload', {})
-            handler = self.dispatch_table[msg['command_name']]
-            return handler(payload)
-
-    def _handle_list_tasks(self, payload):
-        try:
-            return _make_ok_response({'tasks': self.screen_manager.list_tasks()})
-        except Exception as e:
-            return _make_server_error_response(e, 'Could not list tasks')
-
-    def _handle_list_updated_tasks(self, payload):
-        if 'last_update_ts' not in payload:
-            return _make_client_error_response('Missing "last_update_ts" in payload.')
-
-        try:
-            client_ts = long(payload['last_update_ts'])
-            tasks = []
-            for task in self.screen_manager.list_tasks():
-                if task['last_update_ts'] > client_ts:
-                    tasks.append(task)
-
-            return _make_ok_response({'tasks': tasks})
-        except Exception as e:
-            return _make_server_error_response(e, 'Could not get task updates since %s', payload['last_update_ts'])
-
-    def _handle_batchget_icons(self, payload):
-        if 'icon_ids' not in payload:
-            return _make_client_error_response('Missing "icon_ids" in payload.')
-
-        try:
-            icons = [self.screen_manager.get_icon(icon_id) for icon_id in payload['icon_ids']]
-            return _make_ok_response({'icons': icons})
-        except Exception as e:
-            return _make_server_error_response(e, 'Could not get icon with ID %s', payload['icon_id'])
-
-    def _handle_activate_task(self, payload):
-        if 'task_id' not in payload:
-            return _make_client_error_response('Missing "task_id" in payload.')
-
-        try:
-            task_id = payload['task_id']
-            self.screen_manager.activate_task(task_id)
-            return _make_ok_response()
-        except Exception as e:
-            return _make_server_error_response(e, 'Could not activate task with ID %s', payload['task_id'])
+            handler = self.handler_factory.create(command, request_id)
+            return handler.handle(payload)
 
     def manage_connection(self, client_sock, client_addr):
         class SocketFileImpl(object):
