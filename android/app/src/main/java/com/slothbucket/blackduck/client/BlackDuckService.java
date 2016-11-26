@@ -25,7 +25,7 @@ public class BlackDuckService extends Service {
     private ServiceConnectionHandler connectionHandler;
     private LocalBroadcastManager broadcastManager;
 
-    public static void startRequest(Context context, ServiceRequest request) {
+    public static void sendRequest(Context context, ServiceRequest request) {
         Intent intent = new Intent(Constants.ACTION_SERVICE_REQUEST);
         intent.putExtra(Constants.EXTRA_SERVICE_REQUEST, request);
         context.startService(intent);
@@ -43,6 +43,7 @@ public class BlackDuckService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "Starting BlackDuck service.");
         if (intent != null) {
             String action = intent.getAction();
             if (Constants.ACTION_CONNECT_DEVICE.equals(action)) {

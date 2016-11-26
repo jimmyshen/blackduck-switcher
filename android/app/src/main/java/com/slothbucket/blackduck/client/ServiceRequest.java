@@ -11,7 +11,7 @@ import com.google.auto.value.AutoValue;
  */
 @AutoValue
 @JsonDeserialize(builder = AutoValue_ServiceRequest.Builder.class)
-abstract class ServiceRequest implements Parcelable {
+public abstract class ServiceRequest implements Parcelable {
     @JsonProperty("request_id")
     public abstract int requestId();
 

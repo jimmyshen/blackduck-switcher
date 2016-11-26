@@ -13,12 +13,17 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.slothbucket.blackduck.client.BlackDuckService;
+import com.slothbucket.blackduck.client.Constants;
+import com.slothbucket.blackduck.client.RequestPayload;
+import com.slothbucket.blackduck.client.ServiceRequest;
+import com.slothbucket.blackduck.client.ServiceResponse;
+import com.slothbucket.blackduck.common.AndroidUtils;
 import com.slothbucket.blackduck.models.Task;
 import com.slothbucket.blackduck.models.TaskIcon;
 
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = "BlackDuck:MainActivity";
+    private static final String TAG = AndroidUtils.tagNameFor(MainActivity.class);
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int REQUEST_LIST_TASKS_INITIAL = 2;
     private static final int REQUEST_LIST_TASKS_SYNC = 3;
@@ -51,33 +56,44 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (BlackDuckApiIntentService.Constants.ACTION_DEVICE_CONNECTED.equals(action)) {
+            if (Constants.ACTION_DEVICE_CONNECTED.equals(action)) {
                 progressDialog.setMessage("Fetching running tasks...");
                 onDeviceConnected();
-            } else {
-                int requestId =
-                    intent.getIntExtra(BlackDuckApiIntentService.Constants.EXTRA_REQUEST_ID, 0);
+            } else if (Constants.ACTION_SERVICE_RESPONSE.equals(action)) {
+                ServiceResponse response =
+                        intent.getParcelableExtra(Constants.ACTION_SERVICE_RESPONSE);
 
-                if (requestId == REQUEST_LIST_TASKS_INITIAL &&
-                    BlackDuckApiIntentService.Constants.ACTION_TASKS_RESPONSE.equals(action)){
-                    onInitialTaskLoad(
-                        intent.<Task>getParcelableArrayListExtra(
-                            BlackDuckApiIntentService.Constants.EXTRA_TASKS));
-                } else if (requestId == REQUEST_FETCH_ICONS_INITIAL &&
-                    BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE.equals(action)) {
-                    onInitialIconLoad(
-                        intent.<TaskIcon>getParcelableArrayListExtra(
-                                BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE));
-                } else if (requestId == REQUEST_LIST_TASKS_SYNC &&
-                    BlackDuckApiIntentService.Constants.ACTION_TASKS_RESPONSE.equals(action)) {
-                    onTaskUpdates(
-                        intent.<Task>getParcelableArrayListExtra(
-                            BlackDuckApiIntentService.Constants.EXTRA_TASKS));
-                } else if (requestId == REQUEST_FETCH_ICONS_SYNC &&
-                    BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE.equals(action)) {
-                    onNewIcons(
-                        intent.<TaskIcon>getParcelableArrayListExtra(
-                                BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE));
+                String status = response.status();
+                if (!"ok".equals(status)) {
+                    String error = response.error();
+                    if ("client-error".equals(status)) {
+                        Log.e(TAG, String.format("Received client error in response: %s", error));
+                    } else if ("server-error".equals(status)) {
+                        Log.e(TAG, String.format("Received server error in response: %s", error));
+                    } else {
+                        Log.wtf(TAG, String.format("Unexpected status: %s", status));
+                    }
+                    return;
+                }
+
+                switch (response.requestId()) {
+                    case REQUEST_LIST_TASKS_INITIAL:
+                        onInitialTaskLoad(response.payload().tasks());
+                        break;
+                    case REQUEST_FETCH_ICONS_INITIAL:
+                        onInitialIconLoad(response.payload().icons());
+                        break;
+                    case REQUEST_LIST_TASKS_SYNC:
+                        onTaskUpdates(response.payload().tasks());
+                        break;
+                    case REQUEST_FETCH_ICONS_SYNC:
+                        onNewIcons(response.payload().icons());
+                        break;
+                    default:
+                        Log.w(TAG,
+                            String.format(
+                                "Unhandled service response from request ID %d",
+                                response.requestId()));
                 }
             }
         }
@@ -90,9 +106,8 @@ public class MainActivity extends AppCompatActivity {
 
         // Configure local broadcast listener.
         IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BlackDuckApiIntentService.Constants.ACTION_DEVICE_CONNECTED);
-        intentFilter.addAction(BlackDuckApiIntentService.Constants.ACTION_TASKS_RESPONSE);
-        intentFilter.addAction(BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE);
+        intentFilter.addAction(Constants.ACTION_DEVICE_CONNECTED);
+        intentFilter.addAction(Constants.ACTION_SERVICE_RESPONSE);
         LocalBroadcastManager.getInstance(this)
             .registerReceiver(localBroadcastReceiver, intentFilter);
 
@@ -109,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
-            BlackDuckApiIntentService.disconnectDevice(this);
+            stopService(new Intent(this, BlackDuckService.class));
         }
     }
 
@@ -117,6 +132,7 @@ public class MainActivity extends AppCompatActivity {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             // TODO: Popup a useful message instead of doing nothing.
+            Log.e(TAG, "No Bluetooth adapter available!");
         } else if (!bluetoothAdapter.isEnabled()) {
             Intent requestBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(requestBtIntent, REQUEST_ENABLE_BT);
@@ -135,17 +151,27 @@ public class MainActivity extends AppCompatActivity {
         BluetoothDevice device = bluetoothAdapter.getRemoteDevice(BT_DEVICE_MAC);
         if (device == null) {
             Log.e(TAG, String.format("Failed to find remote device '%s'", BT_DEVICE_MAC));
+            return;
         }
-        BlackDuckApiIntentService.connectDevice(this, device);
+
+        Intent intent = new Intent(this, BlackDuckService.class);
+        intent.setAction(Constants.ACTION_CONNECT_DEVICE);
+        intent.putExtra(Constants.EXTRA_DEVICE, device);
+        startService(intent);
     }
 
     private void onDeviceConnected() {
-        BlackDuckApiIntentService.listTasks(this, REQUEST_LIST_TASKS_INITIAL);
+        ServiceRequest request =
+            ServiceRequest.builder()
+                .setRequestId(REQUEST_LIST_TASKS_INITIAL)
+                .setCommand(Constants.COMMAND_LIST_TASKS)
+                .build();
+        BlackDuckService.sendRequest(this, request);
     }
 
     private void onInitialTaskLoad(Iterable<Task> tasks) {
         taskMap.clear();
-        HashSet<String> iconIds = new HashSet<>();
+        ArrayList<String> iconIds = new ArrayList<>();
         long max = 0;
         for (Task task : tasks) {
             taskMap.put(task.id(), task);
@@ -157,7 +183,7 @@ public class MainActivity extends AppCompatActivity {
         maxTimestamp.set(max);
 
         progressDialog.setMessage("Fetching task icons...");
-        BlackDuckApiIntentService.batchGetIcons(this, REQUEST_FETCH_ICONS_INITIAL, iconIds);
+        fetchNewIcons(iconIds);
     }
 
     private void onInitialIconLoad(Iterable<TaskIcon> taskIcons) {
@@ -169,8 +195,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Schedule periodic refresh of tasks.
         schedulePeriodicTaskRefresher(5);
-
-        // TODO: Render the task list for the first time!
+        refreshTaskDisplay();
 
         progressDialog.dismiss();
     }
@@ -190,11 +215,11 @@ public class MainActivity extends AppCompatActivity {
         maxTimestamp.set(max);
 
         // Fetch any new icons.
-        Set<String> newIconIds = getNewIconIds(iconIds);
+        List<String> newIconIds = getNewIconIds(iconIds);
         if (!newIconIds.isEmpty()) {
-            BlackDuckApiIntentService.batchGetIcons(this, REQUEST_FETCH_ICONS_SYNC, newIconIds);
+            fetchNewIcons(newIconIds);
         } else {
-            // TODO: Refresh task display.
+            refreshTaskDisplay();
         }
 
         // TODO: Schedule task/icon garbage sweep when we hit thresholds:
@@ -208,7 +233,19 @@ public class MainActivity extends AppCompatActivity {
             iconMap.put(icon.id(), icon);
         }
 
-        // TODO: Render the task list! (maybe only if open tasks are affected)
+        // TODO: Maybe only refresh tasks that are affected.
+        refreshTaskDisplay();
+    }
+
+    private void fetchNewIcons(List<String> iconIds) {
+        RequestPayload payload = RequestPayload.builder().setIconIds(iconIds).build();
+        ServiceRequest request =
+                ServiceRequest.builder()
+                        .setRequestId(REQUEST_LIST_TASKS_INITIAL)
+                        .setCommand(Constants.COMMAND_BATCHGET_ICONS)
+                        .setPayload(payload)
+                        .build();
+        BlackDuckService.sendRequest(this, request);
     }
 
     private void schedulePeriodicTaskRefresher(int periodSeconds) {
@@ -222,8 +259,15 @@ public class MainActivity extends AppCompatActivity {
             new Runnable() {
                 @Override
                 public void run() {
-                    BlackDuckApiIntentService.listUpdatedTasks(
-                        thisActivity, REQUEST_LIST_TASKS_SYNC, maxTimestamp.get());
+                    RequestPayload payload =
+                        RequestPayload.builder().setLastUpdateTimestamp(maxTimestamp.get()).build();
+                    ServiceRequest request =
+                        ServiceRequest.builder()
+                            .setRequestId(REQUEST_LIST_TASKS_SYNC)
+                            .setCommand(Constants.COMMAND_LIST_UPDATED_TASKS)
+                            .setPayload(payload)
+                            .build();
+                    BlackDuckService.sendRequest(thisActivity, request);
                 }
             },
             periodSeconds,
@@ -231,8 +275,8 @@ public class MainActivity extends AppCompatActivity {
             TimeUnit.SECONDS);
     }
 
-    private Set<String> getNewIconIds(Iterable<String> iconIds) {
-        HashSet<String> newIconIds = new HashSet<>();
+    private List<String> getNewIconIds(Iterable<String> iconIds) {
+        ArrayList<String> newIconIds = new ArrayList<>();
         for (String iconId : iconIds) {
             if (!iconMap.containsKey(iconId)) {
                 newIconIds.add(iconId);

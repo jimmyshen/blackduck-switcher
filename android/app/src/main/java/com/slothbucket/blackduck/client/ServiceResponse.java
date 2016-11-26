@@ -18,6 +18,9 @@ public abstract class ServiceResponse implements Parcelable {
     @JsonProperty("payload")
     public abstract ResponsePayload payload();
 
+    @JsonProperty("error")
+    public abstract String error();
+
     @AutoValue.Builder
     public abstract static class Builder {
         @JsonProperty("request_id")
@@ -28,6 +31,9 @@ public abstract class ServiceResponse implements Parcelable {
 
         @JsonProperty("payload")
         public abstract Builder setPayload(ResponsePayload payload);
+
+        @JsonProperty("error")
+        public abstract Builder setError(String error);
 
         public abstract ServiceResponse build();
     }

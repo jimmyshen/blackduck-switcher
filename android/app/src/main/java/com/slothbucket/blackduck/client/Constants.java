@@ -2,16 +2,23 @@ package com.slothbucket.blackduck.client;
 
 public final class Constants {
 
+    // Commands
+    public static final String COMMAND_LIST_TASKS = "list_tasks";
+    public static final String COMMAND_BATCHGET_ICONS = "batchget_icons";
+    public static final String COMMAND_LIST_UPDATED_TASKS = "list_updated_tasks";
+    public static final String COMMAND_ACTIVATE_TASK = "activate_task";
+
     // Actions
-    static final String ACTION_CONNECT_DEVICE = pkgAction("CONNECT_DEVICE");
-    static final String ACTION_DEVICE_CONNECTED = pkgAction("DEVICE_CONNECTED");
-    static final String ACTION_SERVICE_REQUEST = pkgAction("SERVICE_REQUEST");
-    static final String ACTION_SERVICE_RESPONSE = pkgAction("SERVICE_RESPONSE");
+    public static final String ACTION_CONNECT_DEVICE = pkgAction("CONNECT_DEVICE");
+    public static final String ACTION_DEVICE_CONNECTED = pkgAction("DEVICE_CONNECTED");
+    public static final String ACTION_SERVICE_REQUEST = pkgAction("SERVICE_REQUEST");
+    public static final String ACTION_SERVICE_RESPONSE = pkgAction("SERVICE_RESPONSE");
 
     // Extras
-    static final String EXTRA_DEVICE = pkgExtra("DEVICE");
-    static final String EXTRA_SERVICE_REQUEST = pkgExtra("SERVICE_REQUEST");
-    static final String EXTRA_SERVICE_RESPONSE = pkgExtra("SERVICE_RESPONSE");
+    public static final String EXTRA_DEVICE = pkgExtra("DEVICE");
+    public static final String EXTRA_SERVICE_REQUEST = pkgExtra("SERVICE_REQUEST");
+    public static final String EXTRA_SERVICE_RESPONSE = pkgExtra("SERVICE_RESPONSE");
+
 
     private static String pkgAction(String name) {
         return "com.slothbucket.blackduck.action." + name;
