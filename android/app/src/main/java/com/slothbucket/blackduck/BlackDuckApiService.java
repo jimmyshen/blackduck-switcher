@@ -112,6 +112,9 @@ public class BlackDuckApiService extends IntentService {
             if (socket != null) {
                 broadcastManager.sendBroadcast(new Intent(Constants.ACTION_DEVICE_CONNECTED));
 
+                Log.d(TAG,
+                    String.format("Bluetooth connection established with device at %s",
+                            this.device.getAddress()));
                 try {
                     ServiceRequest task = pendingTasks.poll();
                     if (task == null) {
@@ -341,6 +344,8 @@ public class BlackDuckApiService extends IntentService {
 
         connection = new ServiceConnection(device, LocalBroadcastManager.getInstance(this));
         connection.start();
+
+        Log.i(TAG, "Started Bluetooth connection.");
     }
 
     private void onListTasksAction(int requestId) {

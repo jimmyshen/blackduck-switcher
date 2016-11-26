@@ -1,6 +1,7 @@
 package com.slothbucket.blackduck;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -42,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private final ConcurrentHashMap<String, TaskIcon> iconMap = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final AtomicLong maxTimestamp = new AtomicLong();
+    private ProgressDialog progressDialog;
     private ScheduledFuture<?> periodicRefreshTask;
     private BluetoothAdapter bluetoothAdapter;
 
@@ -50,7 +52,8 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (BlackDuckApiService.Constants.ACTION_DEVICE_CONNECTED.equals(action)) {
-                BlackDuckApiService.listTasks(getParent(), REQUEST_LIST_TASKS_INITIAL);
+                progressDialog.setMessage("Fetching running tasks...");
+                onDeviceConnected();
             } else {
                 int requestId =
                     intent.getIntExtra(BlackDuckApiService.Constants.EXTRA_REQUEST_ID, 0);
@@ -93,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
         LocalBroadcastManager.getInstance(this)
             .registerReceiver(localBroadcastReceiver, intentFilter);
 
+        progressDialog = new ProgressDialog(this, ProgressDialog.STYLE_SPINNER);
         initializeBluetooth();
     }
 
@@ -125,11 +129,18 @@ public class MainActivity extends AppCompatActivity {
         // Cancel discovery to decrease load on adapter.
         bluetoothAdapter.cancelDiscovery();
 
+        progressDialog.setTitle("Please wait while we connect to your computer.");
+        progressDialog.setMessage("Connecting to Bluetooth service...");
+        progressDialog.show();
         BluetoothDevice device = bluetoothAdapter.getRemoteDevice(BT_DEVICE_MAC);
         if (device == null) {
             Log.e(TAG, String.format("Failed to find remote device '%s'", BT_DEVICE_MAC));
         }
         BlackDuckApiService.connectDevice(this, device);
+    }
+
+    private void onDeviceConnected() {
+        BlackDuckApiService.listTasks(this, REQUEST_LIST_TASKS_INITIAL);
     }
 
     private void onInitialTaskLoad(Iterable<Task> tasks) {
@@ -145,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
         }
         maxTimestamp.set(max);
 
+        progressDialog.setMessage("Fetching task icons...");
         BlackDuckApiService.batchGetIcons(this, REQUEST_FETCH_ICONS_INITIAL, iconIds);
     }
 
@@ -159,6 +171,8 @@ public class MainActivity extends AppCompatActivity {
         schedulePeriodicTaskRefresher(5);
 
         // TODO: Render the task list for the first time!
+
+        progressDialog.dismiss();
     }
 
     private void onTaskUpdates(Iterable<Task> tasks) {
