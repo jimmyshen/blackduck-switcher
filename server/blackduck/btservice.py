@@ -3,21 +3,18 @@
 # Author: Jimmy Shen <jimmyshen@slothbucket.com>
 
 import bluetooth
-import logging
+import logging as log
 
 from threading import Thread
 
 SERVICE_NAME = 'BlackDuckTaskService'
 SERVICE_UUID = '7f759fe2-b22a-11e6-ba35-37c9859e1514'
 
-log = logging.getLogger(__name__)
-
 
 class BluetoothService(Thread):
-    def __init__(self, eventbus, screen):
+    def __init__(self, screen_manager):
         super(BluetoothService, self).__init__(name='BluetoothService')
         self.daemon = True
-        self.eventbus = eventbus
         self.screen_manager = screen_manager
         self.handlers = {
             'list_tasks': self._handle_list_tasks,
@@ -33,14 +30,14 @@ class BluetoothService(Thread):
 
     def _make_client_error_response(self, msg, *fmtargs):
         if fmtargs:
-            msg = msg % (*fmtargs)
+            msg = msg % fmtargs
 
         log.error(msg)
         return _make_response('client-error', error=msg)
 
     def _make_server_error_response(self, exc, msg, *fmtargs):
         if fmtargs:
-            msg = msg % (*fmtargs)
+            msg = msg % fmtargs
 
         log.exception(msg, exc_info=exc)
         return _make_response('server-error', error=': '.join([msg, exc.message]))
@@ -64,7 +61,7 @@ class BluetoothService(Thread):
         except Exception as e:
             return _make_server_error_response(e, 'Could not list tasks')
 
-    def _handle_list_task_updates(self, payload):
+    def _handle_list_updated_tasks(self, payload):
         if 'last_update_ts' not in payload:
             return _make_client_error_response('Missing "last_update_ts" in payload.')
 

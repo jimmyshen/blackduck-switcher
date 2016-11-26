@@ -1,7 +1,6 @@
-import logging
-
+import logging as log
 from collections import defaultdict
-from threading import Lock
+from threading import Lock, current_thread
 
 
 class EventBus(object):
@@ -16,28 +15,15 @@ class EventBus(object):
         self.callbacks[event_name].append(callback)
 
     def publish(self, event_name, arglist):
+        # NOTE: Do not log in here unless you want to recurse yourself to kingdom come.
+        t = current_thread()
+        print 'Waiting for lock in thread', t.ident, t.name
         self.lock.acquire()
+        print 'Publishing event ("%s", %s) to bus.' % (event_name, arglist)
         try:
             for callback in self.callbacks[event_name]:
                 callback(*arglist)
         finally:
             self.lock.release()
-
-
-class EventBusLogOutput(object):
-    """A file-like wrapper for EventBus that can be attached to a
-    logging StreamHandler to send events to the application event
-    bus."""
-
-    def __init__(self, eventbus):
-        self.eventbus = eventbus
-        self.msgbuf = []
-
-    def write(self, s):
-        self.msgbuf.append(s)
-
-    def flush(self):
-        if self.msgbuf:
-            self.eventbus.publish('log-message', [''.join(self.msgbuf)])
-            self.msgbuf[:] = []
+            print 'Lock released by thread', t.ident, t.name
 

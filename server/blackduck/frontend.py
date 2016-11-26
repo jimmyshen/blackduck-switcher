@@ -1,22 +1,32 @@
+import logging as log
 from gi.repository import Gtk, GLib
 
 
-class BlackDuckDisplay(Gtk.Window):
-    def __init__(self, eventbus):
-        super(BlackDuckDisplay, self).__init__(default_width=320, default_height=240, title='BlackDuck Service')
+class BlackDuckLogDisplay(Gtk.Window):
+    """GTK dialog for displaying BlackDuck log messages. Exposes a file-like interface so
+    it can just be plugged in as another logging handler."""
 
+    def __init__(self):
+        super(BlackDuckLogDisplay, self).__init__(default_width=640, default_height=480, title='BlackDuck Service')
+
+        # TODO: Prettify.
         textview = Gtk.TextView()
         self.textbuffer = textview.get_buffer()
         scrolled = Gtk.ScrolledWindow()
         scrolled.add(textview)
         self.add(scrolled)
 
-        eventbus.register_callback('log-message', self.on_log_message)
+        self.logbuffer = []
 
-    def append_text(self, text):
-        iter_ = self.textbuffer.get_end_iter()
-        self.textbuffer.insert(iter_, "[%s] %s\n" % (str(time()), text))
+    def write(self, logmsg):
+        print 'Received', logmsg
+        # TODO: Can we use textbuffer directly?
+        self.logbuffer.append(logmsg.format(logmsg))
 
-    def on_log_message(self, logmsg):
-        GLib.idle_add(self.append_text, 'LOG: {0}'.format(logmsg))
+    def flush(self):
+        def impl():
+            self.textbuffer.insert(self.textbuffer.get_end_iter(), ''.join(self.logbuffer))
+            self.logbuffer[:] = []
+
+        GLib.idle_add(impl)
 
