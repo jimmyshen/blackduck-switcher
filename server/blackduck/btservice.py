@@ -81,7 +81,7 @@ class BluetoothService(Thread):
             return _make_client_error_response('Missing "icon_ids" in payload.')
 
         try:
-            icons = {icon_id: self.screen_manager.get_icon(icon_id) for icon_id in payload['icon_ids']}
+            icons = [self.screen_manager.get_icon(icon_id) for icon_id in payload['icon_ids']]
             return _make_ok_response({'icons': icons})
         except Exception as e:
             return _make_server_error_response(e, 'Could not get icon with ID %s', payload['icon_id'])
