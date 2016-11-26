@@ -49,7 +49,7 @@ class BluetoothService(Thread):
 
     def handle_message(self, msg):
         if 'command' not in msg:
-            return make_client_error_response('Message missing "command"')
+            return make_client_error_response('Missing "command" in message.')
         elif msg['command'] not in handlers:
             return make_client_error_response('Received unrecognized command "%s"', msg['command'])
         else:
@@ -63,16 +63,27 @@ class BluetoothService(Thread):
         except Exception as e:
             return make_server_error_response(e, 'Could not list tasks')
 
-    def _handle_get_task_updates(self, payload):
-        # TODO Provide deltas since timestamp.
-        pass
+    def _handle_list_task_updates(self, payload):
+        if 'last_update_ts' not in payload:
+            return make_client_error_response('Missing "last_update_ts" in payload.')
+
+        try:
+            client_ts = long(payload['last_update_ts'])
+            tasks = []
+            for task in self.screen_manager.list_tasks():
+                if task['last_update_ts'] > client_ts:
+                    tasks.append(task)
+
+            return make_ok_response({'tasks': tasks})
+        except Exception as e:
+            return make_server_error_response(e, 'Could not get task updates since %s', payload['last_update_ts'])
 
     def _handle_batchget_icon(self, payload):
         if 'icon_ids' not in payload:
             return make_client_error_response('Missing "icon_ids" in payload.')
 
         try:
-            icons = {str(icon_id): self.screen_manager.get_icon(icon_id) for icon_id in payload['icon_ids']}
+            icons = {icon_id: self.screen_manager.get_icon(icon_id) for icon_id in payload['icon_ids']}
             return make_ok_response({'icons': icons})
         except Exception as e:
             return make_server_error_response(e, 'Could not get icon with ID %s', payload['icon_id'])
