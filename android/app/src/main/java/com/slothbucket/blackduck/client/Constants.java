@@ -2,24 +2,16 @@ package com.slothbucket.blackduck.client;
 
 public final class Constants {
 
-    public static final class Api {
-        // Actions
-        static final String ACTION_DEVICE_CONNECTED = pkgAction("DEVICE_CONNECTED");
-        static final String ACTION_TASK_ACTIVATED = pkgAction("TASK_ACTIVATED");
-        static final String ACTION_TASKS_RESPONSE = pkgAction("TASKS_RESPONSE");
-        static final String ACTION_ICONS_RESPONSE = pkgAction("ICONS_RESPONSE");
+    // Actions
+    static final String ACTION_CONNECT_DEVICE = pkgAction("CONNECT_DEVICE");
+    static final String ACTION_DEVICE_CONNECTED = pkgAction("DEVICE_CONNECTED");
+    static final String ACTION_SERVICE_REQUEST = pkgAction("SERVICE_REQUEST");
+    static final String ACTION_SERVICE_RESPONSE = pkgAction("SERVICE_RESPONSE");
 
-        // Extras
-        static final String EXTRA_REQUEST_ID = pkgExtra("REQUEST_ID");
-        static final String EXTRA_TASKS = pkgExtra("TASKS");
-        static final String EXTRA_TASK_ICONS = pkgExtra("TASK_ICONS");
-
-        private Api() {}
-    }
-
-    static final class Internal {
-        private Internal() {}
-    }
+    // Extras
+    static final String EXTRA_DEVICE = pkgExtra("DEVICE");
+    static final String EXTRA_SERVICE_REQUEST = pkgExtra("SERVICE_REQUEST");
+    static final String EXTRA_SERVICE_RESPONSE = pkgExtra("SERVICE_RESPONSE");
 
     private static String pkgAction(String name) {
         return "com.slothbucket.blackduck.action." + name;

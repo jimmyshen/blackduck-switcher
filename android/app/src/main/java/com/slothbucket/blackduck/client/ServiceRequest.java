@@ -1,25 +1,39 @@
 package com.slothbucket.blackduck.client;
 
+import android.os.Parcelable;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.auto.value.AutoValue;
 
-import java.util.Arrays;
+import java.util.Map;
 
 /**
  * A single request that needs to be sent to the BlackDuck API.
  */
 @AutoValue
-abstract class ServiceRequest {
+@JsonDeserialize(builder = AutoValue_ServiceRequest.Builder.class)
+abstract class ServiceRequest implements Parcelable {
+    @JsonProperty("request_id")
     abstract int requestId();
-    abstract String commandName();
-    abstract byte[] data();
 
-    long dataLength() {
-        return data().length;
-    }
+    @JsonProperty("command")
+    abstract String command();
 
-    static ServiceRequest create(int requestId, String commandName, byte[] data) {
-        // TODO: Check if AutoValue performs a defensive copy on its own.
-        return new AutoValue_ServiceRequest(
-            requestId, commandName, Arrays.copyOf(data, data.length));
+    @JsonProperty("payload")
+    abstract Map<String, Object> payload();
+
+    @AutoValue.Builder
+    public abstract static class Builder {
+        @JsonProperty("request_id")
+        public abstract Builder setRequestId(int requestId);
+
+        @JsonProperty("command")
+        public abstract Builder setCommand(String command);
+
+        @JsonProperty("payload")
+        public abstract Builder setPayload(Map<String, Object> payload);
+
+        public abstract ServiceRequest build();
     }
 }

@@ -21,7 +21,11 @@
 
         <service
             android:name=".BlackDuckApiIntentService"
-            android:exported="false"></service>
+            android:exported="false" />
+        <service
+            android:name=".client.BlackDuckService"
+            android:enabled="true"
+            android:exported="true"></service>
     </application>
 
 </manifest>
