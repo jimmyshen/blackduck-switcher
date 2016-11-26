@@ -137,7 +137,10 @@ class BluetoothService(Thread):
             log.info('User requested termination.')
         finally:
             sock.close()
-            bluetooth.stop_advertising(sock)
+            try:
+                bluetooth.stop_advertising(sock)
+            except Exception:
+                pass
             log.info('Bluetooth service stopped.')
 
 
