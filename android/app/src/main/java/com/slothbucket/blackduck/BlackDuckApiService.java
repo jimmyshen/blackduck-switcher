@@ -27,7 +27,6 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Manages interaction with BlackDuck task service over a persistent Bluetooth connection.
@@ -37,6 +36,8 @@ public class BlackDuckApiService extends IntentService {
         private Constants() {}
 
         // Actions
+        static final String ACTION_DEVICE_CONNECTED = pkgAction("DEVICE_CONNECTED");
+        static final String ACTION_TASK_ACTIVATED = pkgAction("TASK_ACTIVATED");
         static final String ACTION_TASKS_RESPONSE = pkgAction("TASKS_RESPONSE");
         static final String ACTION_ICONS_RESPONSE = pkgAction("ICONS_RESPONSE");
 
@@ -48,6 +49,7 @@ public class BlackDuckApiService extends IntentService {
 
     private static class InternalConstants {
         static final String ACTION_CONNECT_DEVICE = pkgAction("CONNECT_DEVICE");
+        static final String ACTION_DISCONNECT_DEVICE = pkgAction("DISCONNECT_DEVICE");
         static final String ACTION_LIST_TASKS = pkgAction("LIST_TASKS");
         static final String ACTION_LIST_UPDATED_TASKS = pkgAction("LIST_UPDATED_TASKS");
         static final String ACTION_BATCHGET_ICONS = pkgAction("BATCHGET_ICONS");
@@ -67,13 +69,12 @@ public class BlackDuckApiService extends IntentService {
         return "com.slothbucket.blackduck.extra." + name;
     }
 
-    private static final AtomicLong REQUEST_ID_SEQUENCE = new AtomicLong();
     private static final String TAG = "BlackDuckApiService";
     private static final UUID SERVICE_UUID = UUID.fromString("7f759fe2-b22a-11e6-ba35-37c9859e1514");
 
     @AutoValue
     abstract static class ServiceRequest {
-        abstract long requestId();
+        abstract int requestId();
         abstract String commandName();
         abstract byte[] data();
 
@@ -81,7 +82,7 @@ public class BlackDuckApiService extends IntentService {
             return data().length;
         }
 
-        static ServiceRequest create(long requestId, String commandName, byte[] data) {
+        static ServiceRequest create(int requestId, String commandName, byte[] data) {
             // TODO: Check if AutoValue performs a defensive copy on its own.
             return new AutoValue_BlackDuckApiService_ServiceRequest(
                 requestId, commandName, Arrays.copyOf(data, data.length));
@@ -101,12 +102,23 @@ public class BlackDuckApiService extends IntentService {
             this.broadcastManager = broadcastManager;
         }
 
+        public void shutdown() {
+            pendingTasks.offer(null);
+        }
+
         @Override
         public void run() {
             socket = connectDevice();
             if (socket != null) {
+                broadcastManager.sendBroadcast(new Intent(Constants.ACTION_DEVICE_CONNECTED));
+
                 try {
                     ServiceRequest task = pendingTasks.poll();
+                    if (task == null) {
+                        Log.d(TAG, "Interrupt signal received. Shutting down!");
+                        return;
+                    }
+
                     Log.d(TAG, String.format(
                         "Sending request %d (%d bytes).", task.requestId(), task.dataLength()));
                     socket.getOutputStream().write(task.data());
@@ -123,12 +135,14 @@ public class BlackDuckApiService extends IntentService {
                         socket.close();
                     } catch (IOException e) {
                         // fml
+                    } finally {
+                        socket = null;
                     }
                 }
             }
         }
 
-        private void dispatchResponse(long requestId, String command, JsonNode rootNode) {
+        private void dispatchResponse(int requestId, String command, JsonNode rootNode) {
             if (!isValidResponseHeader(rootNode)) {
                 return;
             }
@@ -159,7 +173,7 @@ public class BlackDuckApiService extends IntentService {
                 }
                 intent.putParcelableArrayListExtra(Constants.EXTRA_TASK_ICONS, icons);
             } else if ("activate_task".equals(command)) {
-                return;
+                intent.setAction(Constants.ACTION_TASK_ACTIVATED);
             } else {
                 Log.w(TAG, String.format("Unhandled command response: %s", command));
                 return;
@@ -187,7 +201,7 @@ public class BlackDuckApiService extends IntentService {
             return true;
         }
 
-        void sendRequest(long requestId, String command, byte[] data) {
+        void sendRequest(int requestId, String command, byte[] data) {
             pendingTasks.offer(ServiceRequest.create(requestId, command, data));
         }
 
@@ -226,16 +240,20 @@ public class BlackDuckApiService extends IntentService {
         context.startService(intent);
     }
 
+    public static void disconnectDevice(Context context) {
+        Intent intent = new Intent(context, BlackDuckApiService.class);
+        intent.setAction(InternalConstants.ACTION_DISCONNECT_DEVICE);
+        context.startService(intent);
+    }
+
     /**
      * Lists all the tasks available via the BlackDuck service.
      */
-    public static long listTasks(Context context) {
-        long requestId = REQUEST_ID_SEQUENCE.getAndIncrement();
+    public static void listTasks(Context context, int requestId) {
         Intent intent = new Intent(context, BlackDuckApiService.class);
         intent.setAction(InternalConstants.ACTION_LIST_TASKS);
         intent.putExtra(Constants.EXTRA_REQUEST_ID, requestId);
         context.startService(intent);
-        return requestId;
     }
 
     /**
@@ -244,13 +262,38 @@ public class BlackDuckApiService extends IntentService {
      * <p><b>NOTE:</b> Always use timestamps from the service instead of ones generated by
      * client-side clock.
      */
-    public static long listUpdatedTasks(Context context, long lastUpdateTimestamp) {
-        long requestId = REQUEST_ID_SEQUENCE.getAndIncrement();
+    public static void listUpdatedTasks(Context context, int requestId, long lastUpdateTimestamp) {
         Intent intent = new Intent(context, BlackDuckApiService.class);
         intent.setAction(InternalConstants.ACTION_LIST_TASKS);
         intent.putExtra(Constants.EXTRA_REQUEST_ID, requestId);
+        intent.putExtra(InternalConstants.EXTRA_LAST_UPDATE_TIMESTAMP, lastUpdateTimestamp);
         context.startService(intent);
-        return requestId;
+    }
+
+    /**
+     * Batch get icons given a list of IDs.
+     */
+    public static void batchGetIcons(Context context, int requestId, Iterable<String> iconIds) {
+        Intent intent = new Intent(context, BlackDuckApiService.class);
+        intent.setAction(InternalConstants.ACTION_BATCHGET_ICONS);
+        intent.putExtra(Constants.EXTRA_REQUEST_ID, requestId);
+
+        ArrayList<String> iconIdsList = new ArrayList<>();
+        for (String iconId : iconIds) {
+            iconIdsList.add(iconId);
+        }
+        intent.putStringArrayListExtra(InternalConstants.EXTRA_ICON_IDS, iconIdsList);
+        context.startService(intent);
+    }
+
+    /**
+     * Activate a task given its task ID.
+     */
+    public static void activateTask(Context context, String taskId) {
+        Intent intent = new Intent(context, BlackDuckApiService.class);
+        intent.setAction(InternalConstants.ACTION_ACTIVATE_TASK);
+        intent.putExtra(InternalConstants.EXTRA_TASK_ID, taskId);
+        context.startService(intent);
     }
 
     @Override
@@ -263,8 +306,13 @@ public class BlackDuckApiService extends IntentService {
         if (InternalConstants.ACTION_CONNECT_DEVICE.equals(action)) {
             BluetoothDevice device = intent.getParcelableExtra(InternalConstants.EXTRA_DEVICE);
             onConnectDeviceAction(device);
+        } else if (InternalConstants.ACTION_DISCONNECT_DEVICE.equals(action)) {
+            if (connection != null) {
+                connection.shutdown();
+                connection = null;
+            }
         } else {
-            long requestId = intent.getLongExtra(Constants.EXTRA_REQUEST_ID, 0);
+            int requestId = intent.getIntExtra(Constants.EXTRA_REQUEST_ID, 0);
             if (requestId <= 0) {
                 throw new IllegalArgumentException("Invalid request ID provided.");
             }
@@ -295,7 +343,7 @@ public class BlackDuckApiService extends IntentService {
         connection.start();
     }
 
-    private void onListTasksAction(long requestId) {
+    private void onListTasksAction(int requestId) {
         if (connection == null) {
             throw new IllegalStateException("Cannot list tasks: no connection was established.");
         }
@@ -305,7 +353,7 @@ public class BlackDuckApiService extends IntentService {
         dispatchRequest(requestId, "list_tasks", rootNode);
     }
 
-    private void onListUpdatedTasksAction(long requestId, long lastUpdateTimestamp) {
+    private void onListUpdatedTasksAction(int requestId, long lastUpdateTimestamp) {
         if (connection == null) {
             throw new IllegalStateException("Cannot list tasks: no connection was established.");
         } else if (lastUpdateTimestamp <= 0) {
@@ -318,7 +366,7 @@ public class BlackDuckApiService extends IntentService {
         dispatchRequest(requestId, "list_updated_tasks", rootNode);
     }
 
-    private void onBatchGetIconsAction(long requestId, ArrayList<String> iconIds) {
+    private void onBatchGetIconsAction(int requestId, ArrayList<String> iconIds) {
         if (connection == null) {
             throw new IllegalStateException("Cannot list tasks: no connection was established.");
         } else if (iconIds == null || iconIds.isEmpty()) {
@@ -335,7 +383,7 @@ public class BlackDuckApiService extends IntentService {
         dispatchRequest(requestId, "batchget_icons", rootNode);
     }
 
-    private void onActivateTask(long requestId, String taskId) {
+    private void onActivateTask(int requestId, String taskId) {
         if (connection == null) {
             throw new IllegalStateException("Cannot list tasks: no connection was established.");
         } else if (taskId == null || taskId.isEmpty()) {
@@ -348,14 +396,13 @@ public class BlackDuckApiService extends IntentService {
         dispatchRequest(requestId, "activate_task", rootNode);
     }
 
-    private void dispatchRequest(long requestId, String command, ObjectNode rootNode) {
+    private void dispatchRequest(int requestId, String command, ObjectNode rootNode) {
         if (connection == null) {
             throw new IllegalStateException("Cannot list tasks: no connection was established.");
         }
 
         try {
-            connection.sendRequest(
-                requestId, command, objectMapper.writeValueAsBytes(rootNode));
+            connection.sendRequest(requestId, command, objectMapper.writeValueAsBytes(rootNode));
         } catch (JsonProcessingException e) {
             Log.e(TAG, String.format("Failed to serialize '%s' request.", command), e);
         }
