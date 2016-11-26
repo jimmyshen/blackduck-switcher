@@ -14,14 +14,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.msgpack.jackson.dataformat.MessagePackFactory;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.util.UUID;
 
 /**
  * Manages interaction with BlackDuck task service over a persistent Bluetooth.
  */
-public class RemoteTaskService extends IntentService {
+public class BlackDuckApiService extends IntentService {
     static final class Constants {
         private Constants() {}
 
@@ -33,7 +31,7 @@ public class RemoteTaskService extends IntentService {
         }
     }
 
-    private static final String TAG = "RemoteTaskService";
+    private static final String TAG = "BlackDuckApiService";
     private static final UUID SERVICE_UUID = UUID.fromString("7f759fe2-b22a-11e6-ba35-37c9859e1514");
 
     private class TaskServiceConnection extends Thread {
@@ -86,8 +84,8 @@ public class RemoteTaskService extends IntentService {
 
     @Nullable private TaskServiceConnection connection;
 
-    public RemoteTaskService() {
-        super("RemoteTaskService");
+    public BlackDuckApiService() {
+        super("BlackDuckApiService");
     }
 
     /**
@@ -103,7 +101,7 @@ public class RemoteTaskService extends IntentService {
      * TODO
      */
     public static void listTasks(Context context) {
-        Intent intent = new Intent(context, RemoteTaskService.class);
+        Intent intent = new Intent(context, BlackDuckApiService.class);
         intent.setAction(Constants.ACTION_LIST_TASKS);
         context.startService(intent);
     }

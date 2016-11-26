@@ -19,7 +19,7 @@
         </activity>
 
         <service
-            android:name=".RemoteTaskService"
+            android:name=".BlackDuckApiService"
             android:exported="false"></service>
     </application>
 
