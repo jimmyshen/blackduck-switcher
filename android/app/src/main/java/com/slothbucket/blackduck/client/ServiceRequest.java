@@ -34,4 +34,8 @@ abstract class ServiceRequest implements Parcelable {
 
         public abstract ServiceRequest build();
     }
+
+    public static Builder builder() {
+        return new AutoValue_ServiceRequest.Builder();
+    }
 }

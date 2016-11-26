@@ -28,4 +28,8 @@ public abstract class RequestPayload implements Parcelable {
 
         public abstract RequestPayload build();
     }
+
+    public static Builder builder() {
+        return new AutoValue_RequestPayload.Builder();
+    }
 }
