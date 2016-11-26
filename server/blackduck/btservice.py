@@ -198,6 +198,7 @@ class BluetoothService(Thread):
             while True:
                 log.info('Waiting for connection from client...')
                 client_sock, client_addr = sock.accept()
+                log.info('Accepted connection from client %s.', client_addr)
                 manage_connection(client_sock, client_addr)
         except KeyboardInterrupt:
             log.info('User requested termination.')

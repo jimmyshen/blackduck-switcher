@@ -26,7 +26,8 @@ public class BlackDuckService extends Service {
     private LocalBroadcastManager broadcastManager;
 
     public static void sendRequest(Context context, ServiceRequest request) {
-        Intent intent = new Intent(Constants.ACTION_SERVICE_REQUEST);
+        Intent intent = new Intent(context, BlackDuckService.class);
+        intent.setAction(Constants.ACTION_SERVICE_REQUEST);
         intent.putExtra(Constants.EXTRA_SERVICE_REQUEST, request);
         context.startService(intent);
     }
@@ -43,14 +44,17 @@ public class BlackDuckService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "Starting BlackDuck service.");
+        Log.d(TAG, "Starting service.");
         if (intent != null) {
             String action = intent.getAction();
+            Log.d(TAG, String.format("Received service service action: %s", action));
             if (Constants.ACTION_CONNECT_DEVICE.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(Constants.EXTRA_DEVICE);
                 BluetoothSocket socket;
                 try {
                     socket = device.createRfcommSocketToServiceRecord(SERVICE_UUID);
+                    socket.connect();
+
                     broadcastManager.sendBroadcast(new Intent(Constants.ACTION_DEVICE_CONNECTED));
 
                     connectionHandler =
@@ -62,6 +66,9 @@ public class BlackDuckService extends Service {
                                     broadcastManager.sendBroadcast(intent);
                                 }
                             };
+
+                    Log.i(TAG,
+                        String.format("Established connection with device %s", device.getAddress()));
                 } catch (IOException e) {
                     Log.e(TAG, "Failed to establish Bluetooth connection with device.", e);
                 }
