@@ -165,6 +165,7 @@ public class MainActivity extends AppCompatActivity {
             ServiceRequest.builder()
                 .setRequestId(REQUEST_LIST_TASKS_INITIAL)
                 .setCommand(Constants.COMMAND_LIST_TASKS)
+                .setPayload(RequestPayload.empty())
                 .build();
         BlackDuckService.sendRequest(this, request);
     }
