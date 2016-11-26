@@ -6,6 +6,7 @@
 import os
 import sys
 import logging
+import argparse
 
 # Setup GTK.
 import gi
@@ -16,19 +17,42 @@ from blackduck.btservice import BluetoothService
 from blackduck.screen import ScreenManager
 from blackduck.frontend import BlackDuckLogDisplay
 
+LOG_FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
+LOG_LEVELS = {
+    'DEBUG': logging.DEBUG,
+    'INFO': logging.INFO,
+    'WARNING': logging.WARNING,
+    'ERROR': logging.ERROR,
+    'CRITICAL': logging.CRITICAL,
+    'FATAL': logging.FATAL,
+}
+
+log = logging.getLogger()
+
+def configure_logging(level_name, log_stdout):
+    log.setLevel(LOG_LEVELS[level_name])
+    if log_stdout:
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        log.addHandler(stdout_handler)
 
 if __name__ == '__main__':
+    argparse = argparse.ArgumentParser('start_service')
+    argparse.add_argument('-l', '--log_level',
+            type=str, default='INFO', choices=LOG_LEVELS.keys(), help='Level of logging desired.')
+    argparse.add_argument('--log_stdout', action='store_true', help='Also log to stdout.')
+
+    args = argparse.parse_args()
 
     try:
-        # TODO Check if we still need this:
+        # TODO: Check if we still need this:
         GObject.threads_init()
 
         dialog = BlackDuckLogDisplay()
 
         # Log configuration.
-        logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
-        logging.info('Service starting with PID %d', os.getpid())
-        logging.getLogger().addHandler(logging.StreamHandler(dialog))
+        configure_logging(args.log_level, args.log_stdout)
+        dialog.configure_logger(log, LOG_FORMAT)
 
         # Set up communication layer with GTK windows.
         screen = Wnck.Screen.get_default()
@@ -38,6 +62,7 @@ if __name__ == '__main__':
         # Start listening for Bluetooth service connections.
         btservice = BluetoothService(screen_manager)
         btservice.start()
+        log.info('Service starting with PID %d', os.getpid())
 
         # Start GTK frontend and event loop.
         dialog.show_all()
@@ -45,5 +70,5 @@ if __name__ == '__main__':
         Gtk.main()
     finally:
         Wnck.shutdown()
-        logging.info('Server shutdown.')
+        log.info('Server shutdown.')
 

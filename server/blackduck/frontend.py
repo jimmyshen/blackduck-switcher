@@ -1,4 +1,4 @@
-import logging as log
+import logging
 from gi.repository import Gtk, GLib
 
 
@@ -18,15 +18,22 @@ class BlackDuckLogDisplay(Gtk.Window):
 
         self.logbuffer = []
 
-    def write(self, logmsg):
-        print 'Received', logmsg
-        # TODO: Can we use textbuffer directly?
-        self.logbuffer.append(logmsg.format(logmsg))
+    def configure_logger(self, logger, fmt=None, datefmt=None):
+        """Registers a StreamHandler on the logger that outputs to this dialog."""
 
-    def flush(self):
-        def impl():
-            self.textbuffer.insert(self.textbuffer.get_end_iter(), ''.join(self.logbuffer))
-            self.logbuffer[:] = []
+        class StreamImpl(object):
+            def write(_, logmsg):
+                # TODO: Can we use textbuffer directly?
+                self.logbuffer.append(logmsg)
 
-        GLib.idle_add(impl)
+            def flush(_):
+                def impl():
+                    self.textbuffer.insert(self.textbuffer.get_end_iter(), ''.join(self.logbuffer))
+                    self.logbuffer[:] = []
+
+                GLib.idle_add(impl)
+
+        handler = logging.StreamHandler(StreamImpl())
+        handler.setFormatter(logging.Formatter(fmt, datefmt))
+        logger.addHandler(handler)
 
