@@ -137,7 +137,7 @@ class HandlerFactory(object):
         self.handlers = {
             Command.LIST_TASKS: ListTasksHandler,
             Command.LIST_UPDATED_TASKS: ListUpdatedTasksHandler,
-            Command.BATCHGET_ICONS: BatchGetIconHandler,
+            Command.BATCHGET_ICONS: BatchGetIconsHandler,
             Command.ACTIVATE_TASK: ActivateTaskHandler,
         }
 
