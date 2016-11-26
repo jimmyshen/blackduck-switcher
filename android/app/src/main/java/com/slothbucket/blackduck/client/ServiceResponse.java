@@ -3,11 +3,11 @@ package com.slothbucket.blackduck.client;
 import android.os.Parcelable;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.auto.value.AutoValue;
-import java.util.Map;
 
 @AutoValue
-// TODO @JsonDeserialize(builder = )
+@JsonDeserialize(builder = AutoValue_ServiceResponse.Builder.class)
 public abstract class ServiceResponse implements Parcelable {
     @JsonProperty("request_id")
     public abstract int requestId();
@@ -16,18 +16,18 @@ public abstract class ServiceResponse implements Parcelable {
     public abstract String status();
 
     @JsonProperty("payload")
-    public abstract Map<String, Object> payload();
+    public abstract ResponsePayload payload();
 
     @AutoValue.Builder
     public abstract static class Builder {
         @JsonProperty("request_id")
-        public abstract Builder setRequestId(String id);
+        public abstract Builder setRequestId(int id);
 
         @JsonProperty("status")
         public abstract Builder setStatus(String status);
 
         @JsonProperty("payload")
-        public abstract Builder setPayload(Map<String, Object> payload);
+        public abstract Builder setPayload(ResponsePayload payload);
 
         public abstract ServiceResponse build();
     }

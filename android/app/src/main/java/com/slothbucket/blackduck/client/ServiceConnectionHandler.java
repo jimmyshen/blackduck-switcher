@@ -9,7 +9,6 @@ import com.slothbucket.blackduck.common.AndroidUtils;
 import com.slothbucket.blackduck.common.Preconditions;
 
 import java.io.IOException;
-import java.util.UUID;
 
 /**
  * Manages I/O with Bluetooth service.

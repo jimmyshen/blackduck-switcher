@@ -10,7 +10,7 @@ import com.google.auto.value.AutoValue;
  * A task running on the host device.
  */
 @AutoValue
-@JsonDeserialize(builder=AutoValue_Task.Builder.class)
+@JsonDeserialize(builder = AutoValue_Task.Builder.class)
 public abstract class Task implements Parcelable {
 
     /** Unique identifier for a task. */

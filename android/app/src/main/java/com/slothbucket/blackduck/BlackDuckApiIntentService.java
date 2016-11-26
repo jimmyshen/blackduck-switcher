@@ -84,7 +84,7 @@ public class BlackDuckApiIntentService extends IntentService {
 
         static ServiceRequest create(int requestId, String commandName, byte[] data) {
             // TODO: Check if AutoValue performs a defensive copy on its own.
-            return new AutoValue_BlackDuckApiService_ServiceRequest(
+            return new AutoValue_BlackDuckApiIntentService_ServiceRequest(
                 requestId, commandName, Arrays.copyOf(data, data.length));
         }
     }
