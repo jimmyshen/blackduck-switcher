@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 /**
  * Manages interaction with BlackDuck task service over a persistent Bluetooth connection.
  */
-public class BlackDuckApiService extends IntentService {
+public class BlackDuckApiIntentService extends IntentService {
     public static final class Constants {
         private Constants() {}
 
@@ -69,7 +69,7 @@ public class BlackDuckApiService extends IntentService {
         return "com.slothbucket.blackduck.extra." + name;
     }
 
-    private static final String TAG = "BlackDuckApiService";
+    private static final String TAG = "BlackDuckApiIntentService";
     private static final UUID SERVICE_UUID = UUID.fromString("7f759fe2-b22a-11e6-ba35-37c9859e1514");
 
     @AutoValue
@@ -227,8 +227,8 @@ public class BlackDuckApiService extends IntentService {
     private final ObjectMapper objectMapper = new ObjectMapper(new MessagePackFactory());
     @Nullable private ServiceConnection connection;
 
-    public BlackDuckApiService() {
-        super("BlackDuckApiService");
+    public BlackDuckApiIntentService() {
+        super("BlackDuckApiIntentService");
     }
 
     /**
@@ -237,14 +237,14 @@ public class BlackDuckApiService extends IntentService {
      * <p>Be sure to call {@link BluetoothAdapter#cancelDiscovery()} to reduce load on the adapter.
      */
     public static void connectDevice(Context context, BluetoothDevice device) {
-        Intent intent = new Intent(context, BlackDuckApiService.class);
+        Intent intent = new Intent(context, BlackDuckApiIntentService.class);
         intent.setAction(InternalConstants.ACTION_CONNECT_DEVICE);
         intent.putExtra(InternalConstants.EXTRA_DEVICE, device);
         context.startService(intent);
     }
 
     public static void disconnectDevice(Context context) {
-        Intent intent = new Intent(context, BlackDuckApiService.class);
+        Intent intent = new Intent(context, BlackDuckApiIntentService.class);
         intent.setAction(InternalConstants.ACTION_DISCONNECT_DEVICE);
         context.startService(intent);
     }
@@ -253,7 +253,7 @@ public class BlackDuckApiService extends IntentService {
      * Lists all the tasks available via the BlackDuck service.
      */
     public static void listTasks(Context context, int requestId) {
-        Intent intent = new Intent(context, BlackDuckApiService.class);
+        Intent intent = new Intent(context, BlackDuckApiIntentService.class);
         intent.setAction(InternalConstants.ACTION_LIST_TASKS);
         intent.putExtra(Constants.EXTRA_REQUEST_ID, requestId);
         context.startService(intent);
@@ -266,7 +266,7 @@ public class BlackDuckApiService extends IntentService {
      * client-side clock.
      */
     public static void listUpdatedTasks(Context context, int requestId, long lastUpdateTimestamp) {
-        Intent intent = new Intent(context, BlackDuckApiService.class);
+        Intent intent = new Intent(context, BlackDuckApiIntentService.class);
         intent.setAction(InternalConstants.ACTION_LIST_TASKS);
         intent.putExtra(Constants.EXTRA_REQUEST_ID, requestId);
         intent.putExtra(InternalConstants.EXTRA_LAST_UPDATE_TIMESTAMP, lastUpdateTimestamp);
@@ -277,7 +277,7 @@ public class BlackDuckApiService extends IntentService {
      * Batch get icons given a list of IDs.
      */
     public static void batchGetIcons(Context context, int requestId, Iterable<String> iconIds) {
-        Intent intent = new Intent(context, BlackDuckApiService.class);
+        Intent intent = new Intent(context, BlackDuckApiIntentService.class);
         intent.setAction(InternalConstants.ACTION_BATCHGET_ICONS);
         intent.putExtra(Constants.EXTRA_REQUEST_ID, requestId);
 
@@ -293,7 +293,7 @@ public class BlackDuckApiService extends IntentService {
      * Activate a task given its task ID.
      */
     public static void activateTask(Context context, String taskId) {
-        Intent intent = new Intent(context, BlackDuckApiService.class);
+        Intent intent = new Intent(context, BlackDuckApiIntentService.class);
         intent.setAction(InternalConstants.ACTION_ACTIVATE_TASK);
         intent.putExtra(InternalConstants.EXTRA_TASK_ID, taskId);
         context.startService(intent);

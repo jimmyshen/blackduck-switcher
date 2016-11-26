@@ -20,7 +20,7 @@
         </activity>
 
         <service
-            android:name=".BlackDuckApiService"
+            android:name=".BlackDuckApiIntentService"
             android:exported="false"></service>
     </application>
 

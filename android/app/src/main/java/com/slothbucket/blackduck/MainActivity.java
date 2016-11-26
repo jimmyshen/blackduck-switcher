@@ -51,33 +51,33 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (BlackDuckApiService.Constants.ACTION_DEVICE_CONNECTED.equals(action)) {
+            if (BlackDuckApiIntentService.Constants.ACTION_DEVICE_CONNECTED.equals(action)) {
                 progressDialog.setMessage("Fetching running tasks...");
                 onDeviceConnected();
             } else {
                 int requestId =
-                    intent.getIntExtra(BlackDuckApiService.Constants.EXTRA_REQUEST_ID, 0);
+                    intent.getIntExtra(BlackDuckApiIntentService.Constants.EXTRA_REQUEST_ID, 0);
 
                 if (requestId == REQUEST_LIST_TASKS_INITIAL &&
-                    BlackDuckApiService.Constants.ACTION_TASKS_RESPONSE.equals(action)){
+                    BlackDuckApiIntentService.Constants.ACTION_TASKS_RESPONSE.equals(action)){
                     onInitialTaskLoad(
                         intent.<Task>getParcelableArrayListExtra(
-                            BlackDuckApiService.Constants.EXTRA_TASKS));
+                            BlackDuckApiIntentService.Constants.EXTRA_TASKS));
                 } else if (requestId == REQUEST_FETCH_ICONS_INITIAL &&
-                    BlackDuckApiService.Constants.ACTION_ICONS_RESPONSE.equals(action)) {
+                    BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE.equals(action)) {
                     onInitialIconLoad(
                         intent.<TaskIcon>getParcelableArrayListExtra(
-                                BlackDuckApiService.Constants.ACTION_ICONS_RESPONSE));
+                                BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE));
                 } else if (requestId == REQUEST_LIST_TASKS_SYNC &&
-                    BlackDuckApiService.Constants.ACTION_TASKS_RESPONSE.equals(action)) {
+                    BlackDuckApiIntentService.Constants.ACTION_TASKS_RESPONSE.equals(action)) {
                     onTaskUpdates(
                         intent.<Task>getParcelableArrayListExtra(
-                            BlackDuckApiService.Constants.EXTRA_TASKS));
+                            BlackDuckApiIntentService.Constants.EXTRA_TASKS));
                 } else if (requestId == REQUEST_FETCH_ICONS_SYNC &&
-                    BlackDuckApiService.Constants.ACTION_ICONS_RESPONSE.equals(action)) {
+                    BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE.equals(action)) {
                     onNewIcons(
                         intent.<TaskIcon>getParcelableArrayListExtra(
-                                BlackDuckApiService.Constants.ACTION_ICONS_RESPONSE));
+                                BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE));
                 }
             }
         }
@@ -90,9 +90,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Configure local broadcast listener.
         IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BlackDuckApiService.Constants.ACTION_DEVICE_CONNECTED);
-        intentFilter.addAction(BlackDuckApiService.Constants.ACTION_TASKS_RESPONSE);
-        intentFilter.addAction(BlackDuckApiService.Constants.ACTION_ICONS_RESPONSE);
+        intentFilter.addAction(BlackDuckApiIntentService.Constants.ACTION_DEVICE_CONNECTED);
+        intentFilter.addAction(BlackDuckApiIntentService.Constants.ACTION_TASKS_RESPONSE);
+        intentFilter.addAction(BlackDuckApiIntentService.Constants.ACTION_ICONS_RESPONSE);
         LocalBroadcastManager.getInstance(this)
             .registerReceiver(localBroadcastReceiver, intentFilter);
 
@@ -109,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
-            BlackDuckApiService.disconnectDevice(this);
+            BlackDuckApiIntentService.disconnectDevice(this);
         }
     }
 
@@ -136,11 +136,11 @@ public class MainActivity extends AppCompatActivity {
         if (device == null) {
             Log.e(TAG, String.format("Failed to find remote device '%s'", BT_DEVICE_MAC));
         }
-        BlackDuckApiService.connectDevice(this, device);
+        BlackDuckApiIntentService.connectDevice(this, device);
     }
 
     private void onDeviceConnected() {
-        BlackDuckApiService.listTasks(this, REQUEST_LIST_TASKS_INITIAL);
+        BlackDuckApiIntentService.listTasks(this, REQUEST_LIST_TASKS_INITIAL);
     }
 
     private void onInitialTaskLoad(Iterable<Task> tasks) {
@@ -157,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
         maxTimestamp.set(max);
 
         progressDialog.setMessage("Fetching task icons...");
-        BlackDuckApiService.batchGetIcons(this, REQUEST_FETCH_ICONS_INITIAL, iconIds);
+        BlackDuckApiIntentService.batchGetIcons(this, REQUEST_FETCH_ICONS_INITIAL, iconIds);
     }
 
     private void onInitialIconLoad(Iterable<TaskIcon> taskIcons) {
@@ -192,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
         // Fetch any new icons.
         Set<String> newIconIds = getNewIconIds(iconIds);
         if (!newIconIds.isEmpty()) {
-            BlackDuckApiService.batchGetIcons(this, REQUEST_FETCH_ICONS_SYNC, newIconIds);
+            BlackDuckApiIntentService.batchGetIcons(this, REQUEST_FETCH_ICONS_SYNC, newIconIds);
         } else {
             // TODO: Refresh task display.
         }
@@ -222,7 +222,7 @@ public class MainActivity extends AppCompatActivity {
             new Runnable() {
                 @Override
                 public void run() {
-                    BlackDuckApiService.listUpdatedTasks(
+                    BlackDuckApiIntentService.listUpdatedTasks(
                         thisActivity, REQUEST_LIST_TASKS_SYNC, maxTimestamp.get());
                 }
             },
