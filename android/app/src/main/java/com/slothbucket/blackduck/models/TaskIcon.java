@@ -1,5 +1,7 @@
 package com.slothbucket.blackduck.models;
 
+import android.os.Parcelable;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.auto.value.AutoValue;
@@ -9,7 +11,7 @@ import com.google.auto.value.AutoValue;
  */
 @AutoValue
 @JsonDeserialize(builder = AutoValue_TaskIcon.Builder.class)
-public abstract class TaskIcon {
+public abstract class TaskIcon implements Parcelable {
     /** ID for the icon. */
     @JsonProperty("id")
     public abstract String id();
