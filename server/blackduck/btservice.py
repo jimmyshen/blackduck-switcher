@@ -98,19 +98,22 @@ class BluetoothService(Thread):
             return _make_server_error_response(e, 'Could not activate task with ID %s', payload['task_id'])
 
     def manage_connection(self, client_sock, client_addr):
-        try:
-            # Duckypatch in a read() method to _make msgpack
-            # stream deserializer happy...
-            client_sock.read = lambda bytelen: client_sock.recv(bytelen)
+        class SocketFileImpl(object):
+            # Give socket a file-like API to make msgpack stream deserializer happy.
+            def read(_, bytelen):
+                data = client_sock.recv(bytelen)
+                log.debug('Read %d bytes from client %s.', len(data), client_addr)
+                return data
 
+        try:
             while True:
-                msg = msgpack.unpack(client_sock)
+                msg = msgpack.unpack(SocketFileImpl())
                 response = msgpack.pack(self.handle_message(msg))
-                log.info('Wrote back %d bytes to client.', len(response))
+                log.debug('Writing %d bytes to client %s.', len(response), client_addr)
                 client_sock.write(response)
         finally:
             client_sock.close()
-            log.info('Connection with "%s" was closed.', client_info)
+            log.info('Connection with client %s closed.', client_addr)
 
     def run(self):
         sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
@@ -123,6 +126,7 @@ class BluetoothService(Thread):
             service_id = SERVICE_UUID,
             service_classes = [SERVICE_UUID, bluetooth.SERIAL_PORT_CLASS],
             profiles = [bluetooth.SERIAL_PORT_PROFILE])
+        log.debug('Advertising Bluetooth service as "%s"', SERVICE_NAME)
 
         try:
             while True:
