@@ -156,27 +156,31 @@ class BluetoothService(Thread):
         self.handler_factory = HandlerFactory(self)
 
     def handle_message(self, msg):
-        if 'command' not in msg:
-            return client_error_response('Missing "command" in message.')
-        else:
-            command = msg['command']
-            request_id = msg.get('request_id', 0xDEADBEEF)
-            payload = msg.get('payload', {})
-            handler = self.handler_factory.create(command, request_id)
-            return handler.handle(payload)
+        command = msg.get('command', '')
+        request_id = msg.get('request_id', 0xDEADBEEF)
+        payload = msg.get('payload', {})
+        handler = self.handler_factory.create(command, request_id)
+        return handler.handle(payload)
 
     def manage_connection(self, client_sock, client_addr):
         unpacker = msgpack.Unpacker()
         try:
             while True:
                 log.info('Waiting for messages...')
+                queue = []
                 while True:
-                    buf = client_sock.recv(4096)
+                    buf = client_sock.recv(1024)
                     if not buf:
                         break
-                    unpacker.feed(buf)
 
-                for msg in unpacker:
+                    unpacker.feed(buf)
+                    for msg in unpacker:
+                        queue.append(msg)
+
+                    if queue:
+                        break
+
+                for msg in queue:
                     log.debug('Received message from client %s:\n%s', client_addr, msg)
                     response = self.handle_message(msg)
                     client_sock.send(msgpack.packb(response))
