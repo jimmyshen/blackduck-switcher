@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 class MessagePackIoBridge implements MessageIoBridge {
+
     // Disable the default Jackson configuration that closes my sockets!!! >_<;
     private final JsonFactory jsonFactory =
         new MessagePackFactory()
@@ -20,7 +21,7 @@ class MessagePackIoBridge implements MessageIoBridge {
     private final ObjectMapper mapper = new ObjectMapper(jsonFactory);
 
     @Override
-    public void write(ServiceRequest request, final OutputStream outputStream) throws IOException {
+    public void write(ServiceRequest request, OutputStream outputStream) throws IOException {
         mapper.writerFor(ServiceRequest.class).writeValue(outputStream, request);
     }
 
