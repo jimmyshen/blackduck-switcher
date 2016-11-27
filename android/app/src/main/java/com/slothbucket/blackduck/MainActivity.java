@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
                 progressDialog.setMessage(String.format("Bluetooth error: %s", reason));
             } else if (Constants.ACTION_SERVICE_RESPONSE.equals(action)) {
                 ServiceResponse response =
-                        intent.getParcelableExtra(Constants.ACTION_SERVICE_RESPONSE);
+                    intent.getParcelableExtra(Constants.EXTRA_SERVICE_RESPONSE);
 
                 String status = response.status();
                 if (!"ok".equals(status)) {

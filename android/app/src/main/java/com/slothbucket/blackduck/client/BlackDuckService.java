@@ -59,14 +59,14 @@ public class BlackDuckService extends Service {
                     broadcastManager.sendBroadcast(new Intent(Constants.ACTION_DEVICE_CONNECTED));
 
                     connectionHandler =
-                            new ServiceConnectionHandler(looper, socket, new MessagePackIoBridge()) {
-                                @Override
-                                void onServiceResponse(ServiceResponse response) {
-                                    Intent intent = new Intent(Constants.ACTION_SERVICE_RESPONSE);
-                                    intent.putExtra(Constants.EXTRA_SERVICE_RESPONSE, response);
-                                    broadcastManager.sendBroadcast(intent);
-                                }
-                            };
+                        new ServiceConnectionHandler(looper, socket, new MessagePackIoBridge()) {
+                            @Override
+                            void onServiceResponse(ServiceResponse response) {
+                                Intent intent = new Intent(Constants.ACTION_SERVICE_RESPONSE);
+                                intent.putExtra(Constants.EXTRA_SERVICE_RESPONSE, response);
+                                broadcastManager.sendBroadcast(intent);
+                            }
+                        };
 
                     logger.atInfo().log(
                         "Established connection with device %s", device.getAddress());
