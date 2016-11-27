@@ -11,11 +11,13 @@ public final class Constants {
     // Actions
     public static final String ACTION_CONNECT_DEVICE = pkgAction("CONNECT_DEVICE");
     public static final String ACTION_DEVICE_CONNECTED = pkgAction("DEVICE_CONNECTED");
+    public static final String ACTION_DEVICE_ERROR = pkgAction("DEVICE_ERROR");
     public static final String ACTION_SERVICE_REQUEST = pkgAction("SERVICE_REQUEST");
     public static final String ACTION_SERVICE_RESPONSE = pkgAction("SERVICE_RESPONSE");
 
     // Extras
     public static final String EXTRA_DEVICE = pkgExtra("DEVICE");
+    public static final String EXTRA_ERROR_MESSAGE = pkgExtra("ERROR_MESSAGE");
     public static final String EXTRA_SERVICE_REQUEST = pkgExtra("SERVICE_REQUEST");
     public static final String EXTRA_SERVICE_RESPONSE = pkgExtra("SERVICE_RESPONSE");
 

@@ -52,13 +52,16 @@ public class MainActivity extends AppCompatActivity {
     private ScheduledFuture<?> periodicRefreshTask;
     private BluetoothAdapter bluetoothAdapter;
 
-    private final BroadcastReceiver localBroadcastReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver blackduckServiceReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (Constants.ACTION_DEVICE_CONNECTED.equals(action)) {
                 progressDialog.setMessage("Fetching running tasks...");
                 onDeviceConnected();
+            } else if (Constants.ACTION_DEVICE_ERROR.equals(action)) {
+                String reason = intent.getStringExtra(Constants.EXTRA_ERROR_MESSAGE);
+                progressDialog.setMessage(String.format("Bluetooth error: %s", reason));
             } else if (Constants.ACTION_SERVICE_RESPONSE.equals(action)) {
                 ServiceResponse response =
                         intent.getParcelableExtra(Constants.ACTION_SERVICE_RESPONSE);
@@ -68,8 +71,10 @@ public class MainActivity extends AppCompatActivity {
                     String error = response.error();
                     if ("client-error".equals(status)) {
                         logger.atError().log("Received client error in response: %s", error);
+                        progressDialog.setMessage("Client error encountered.");
                     } else if ("server-error".equals(status)) {
                         logger.atError().log("Received server error in response: %s", error);
+                        progressDialog.setMessage("Server error encountered.");
                     } else {
                         logger.atError().log("Unexpected status: %s", status);
                     }
@@ -105,9 +110,10 @@ public class MainActivity extends AppCompatActivity {
         // Configure local broadcast listener.
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(Constants.ACTION_DEVICE_CONNECTED);
+        intentFilter.addAction(Constants.ACTION_DEVICE_ERROR);
         intentFilter.addAction(Constants.ACTION_SERVICE_RESPONSE);
         LocalBroadcastManager.getInstance(this)
-            .registerReceiver(localBroadcastReceiver, intentFilter);
+            .registerReceiver(blackduckServiceReceiver, intentFilter);
 
         progressDialog = new ProgressDialog(this, ProgressDialog.STYLE_SPINNER);
         initializeBluetooth();

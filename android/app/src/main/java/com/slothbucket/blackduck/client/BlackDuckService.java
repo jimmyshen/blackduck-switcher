@@ -63,7 +63,7 @@ public class BlackDuckService extends Service {
                                 @Override
                                 void onServiceResponse(ServiceResponse response) {
                                     Intent intent = new Intent(Constants.ACTION_SERVICE_RESPONSE);
-                                    intent.putExtra(Constants.ACTION_SERVICE_RESPONSE, response);
+                                    intent.putExtra(Constants.EXTRA_SERVICE_RESPONSE, response);
                                     broadcastManager.sendBroadcast(intent);
                                 }
                             };
@@ -73,6 +73,7 @@ public class BlackDuckService extends Service {
                 } catch (IOException e) {
                     logger.atError().withCause(e).log(
                         "Failed to establish Bluetooth connection with device.");
+                    onDeviceError(e);
                 }
             } else if (Constants.ACTION_SERVICE_REQUEST.equals(action)) {
                 ServiceRequest request = intent.getParcelableExtra(Constants.EXTRA_SERVICE_REQUEST);
@@ -102,5 +103,11 @@ public class BlackDuckService extends Service {
             logger.atDebug().log("Closing connection.");
             connectionHandler.close();
         }
+    }
+
+    private void onDeviceError(Throwable cause) {
+        Intent intent = new Intent(Constants.ACTION_DEVICE_ERROR);
+        intent.putExtra(Constants.EXTRA_ERROR_MESSAGE, cause.getMessage());
+        broadcastManager.sendBroadcast(intent);
     }
 }
