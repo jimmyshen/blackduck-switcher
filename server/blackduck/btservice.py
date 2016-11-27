@@ -166,22 +166,23 @@ class BluetoothService(Thread):
             return handler.handle(payload)
 
     def manage_connection(self, client_sock, client_addr):
-        class SocketFileImpl(object):
-            # Give socket a file-like API to make msgpack stream deserializer happy.
-            def read(_, bytelen=None):
-                bytelen = bytelen or 1024
-                return client_sock.recv(bytelen)
-
+        unpacker = msgpack.Unpacker()
         try:
             while True:
-                log.info('Waiting for message...')
-                msg = msgpack.unpack(SocketFileImpl())
-                log.debug('Client %s sent message: %s', client_addr, msg)
-                response = msgpack.packb(self.handle_message(msg))
-                client_sock.send(response)
-                #log.debug('Server sent message (%d bytes) to client %s', len(response), client_addr)
+                log.info('Waiting for messages...')
+                while True:
+                    buf = client_sock.recv(4096)
+                    if not buf:
+                        break
+                    unpacker.feed(buf)
+
+                for msg in unpacker:
+                    log.debug('Received message from client %s:\n%s', client_addr, msg)
+                    response = self.handle_message(msg)
+                    client_sock.send(msgpack.packb(response))
+                    log.debug('Sent message to client %s:\n%s', client_addr, response)
         except Exception as e:
-            log.exception('Exception while handling connection.', exc_info=e)
+            log.error('Exception while handling connection.', exc_info=e)
         finally:
             client_sock.close()
             log.info('Connection with client %s closed.', client_addr)
