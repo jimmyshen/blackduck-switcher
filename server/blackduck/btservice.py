@@ -58,7 +58,7 @@ class Handler(object):
         return self.response(Status.SERVER_ERROR, error=': '.join([msg, exc.message]))
 
     def ok_response(self, payload=None):
-        return self.response(Status.OK, data=payload or {})
+        return self.response(Status.OK, payload=payload or {})
 
     def handle(self, payload):
         raise NotImplementedError()
