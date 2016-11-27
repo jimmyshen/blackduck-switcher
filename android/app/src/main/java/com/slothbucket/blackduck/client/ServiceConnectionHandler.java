@@ -3,9 +3,8 @@ package com.slothbucket.blackduck.client;
 import android.bluetooth.BluetoothSocket;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
-import com.slothbucket.blackduck.common.AndroidUtils;
+import com.slothbucket.blackduck.common.FluentLog;
 import com.slothbucket.blackduck.common.Preconditions;
 
 import java.io.IOException;
@@ -15,7 +14,7 @@ import java.io.IOException;
  */
 abstract class ServiceConnectionHandler extends Handler {
 
-    private static final String TAG = AndroidUtils.tagNameFor(ServiceConnectionHandler.class);
+    private static final FluentLog logger = FluentLog.loggerFor(ServiceConnectionHandler.class);
 
     private final BluetoothSocket socket;
     private final MessageIoBridge ioBridge;
@@ -33,20 +32,20 @@ abstract class ServiceConnectionHandler extends Handler {
             public void run() {
                 int requestId = request.requestId();
                 try {
-                    Log.d(TAG, String.format("Sending request %d: %s", requestId, request));
+                    logger.atDebug().log("Sending request %d: %s", requestId, request);
                     ioBridge.write(request, socket.getOutputStream());
-                    Log.d(TAG, String.format("Request %d sent successfully.", requestId));
+                    logger.atDebug().log("Request %d sent successfully.", requestId);
                 } catch (IOException e) {
-                    Log.e(TAG, String.format("Failed to process request %d", requestId), e);
+                    logger.atError().withCause(e).log("Failed to process request %d", requestId);
                 }
 
                 try {
                     ServiceResponse response = ioBridge.read(socket.getInputStream());
-                    Log.d(TAG,
-                        String.format("Received response for request %d: %s", requestId, response));
+                    logger.atDebug().log(
+                            "Received response for request %d: %s", requestId, response);
                     onServiceResponse(response);
                 } catch (IOException e) {
-                    Log.e(TAG, String.format("Failed to process request %d", requestId), e);
+                    logger.atError().withCause(e).log("Failed to process request %d", requestId);
                 }
 
             }
@@ -57,7 +56,7 @@ abstract class ServiceConnectionHandler extends Handler {
         try {
             socket.close();
         } catch (IOException e) {
-            Log.w(TAG, "Failed to close socket.", e);
+            logger.atWarning().withCause(e).log("Failed to close socket.");
         }
     }
 

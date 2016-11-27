@@ -10,15 +10,14 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
 import android.support.v4.content.LocalBroadcastManager;
-import android.util.Log;
 
-import com.slothbucket.blackduck.common.AndroidUtils;
+import com.slothbucket.blackduck.common.FluentLog;
 
 import java.io.IOException;
 import java.util.UUID;
 
 public class BlackDuckService extends Service {
-    private static final String TAG = AndroidUtils.tagNameFor(BlackDuckService.class);
+    private static final FluentLog logger = FluentLog.loggerFor(BlackDuckService.class);
     private static final UUID SERVICE_UUID = UUID.fromString("7f759fe2-b22a-11e6-ba35-37c9859e1514");
 
     private Looper looper;
@@ -44,10 +43,10 @@ public class BlackDuckService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "Starting service.");
+        logger.atDebug().log("Starting service.");
         if (intent != null) {
             String action = intent.getAction();
-            Log.d(TAG, String.format("Received service service action: %s", action));
+            logger.atDebug().log("Received service service action: %s", action);
             if (Constants.ACTION_CONNECT_DEVICE.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(Constants.EXTRA_DEVICE);
                 BluetoothSocket socket;
@@ -67,20 +66,22 @@ public class BlackDuckService extends Service {
                                 }
                             };
 
-                    Log.i(TAG,
-                        String.format("Established connection with device %s", device.getAddress()));
+                    logger.atInfo().log(
+                        "Established connection with device %s", device.getAddress());
                 } catch (IOException e) {
-                    Log.e(TAG, "Failed to establish Bluetooth connection with device.", e);
+                    logger.atError().withCause(e).log(
+                        "Failed to establish Bluetooth connection with device.");
                 }
             } else if (Constants.ACTION_SERVICE_REQUEST.equals(action)) {
                 ServiceRequest request = intent.getParcelableExtra(Constants.EXTRA_SERVICE_REQUEST);
                 if (connectionHandler != null) {
                     connectionHandler.sendRequest(request);
                 } else {
-                    Log.e(TAG, "Attempted to send request without a connection available.");
+                    logger.atError().log(
+                        "Attempted to send request without a connection available.");
                 }
             } else {
-                Log.w(TAG, String.format("Unhandled action sent to service: %s", action));
+                logger.atWarning().log("Unhandled action sent to service: %s", action);
             }
         }
 

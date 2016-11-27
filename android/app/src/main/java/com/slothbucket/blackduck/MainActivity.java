@@ -11,14 +11,13 @@ import android.content.IntentFilter;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 
 import com.slothbucket.blackduck.client.BlackDuckService;
 import com.slothbucket.blackduck.client.Constants;
 import com.slothbucket.blackduck.client.RequestPayload;
 import com.slothbucket.blackduck.client.ServiceRequest;
 import com.slothbucket.blackduck.client.ServiceResponse;
-import com.slothbucket.blackduck.common.AndroidUtils;
+import com.slothbucket.blackduck.common.FluentLog;
 import com.slothbucket.blackduck.models.Task;
 import com.slothbucket.blackduck.models.TaskIcon;
 
@@ -33,7 +32,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = AndroidUtils.tagNameFor(MainActivity.class);
+    private static final FluentLog logger = FluentLog.loggerFor(MainActivity.class);
+
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int REQUEST_LIST_TASKS_INITIAL = 2;
     private static final int REQUEST_LIST_TASKS_SYNC = 3;
@@ -67,11 +67,11 @@ public class MainActivity extends AppCompatActivity {
                 if (!"ok".equals(status)) {
                     String error = response.error();
                     if ("client-error".equals(status)) {
-                        Log.e(TAG, String.format("Received client error in response: %s", error));
+                        logger.atError().log("Received client error in response: %s", error);
                     } else if ("server-error".equals(status)) {
-                        Log.e(TAG, String.format("Received server error in response: %s", error));
+                        logger.atError().log("Received server error in response: %s", error);
                     } else {
-                        Log.wtf(TAG, String.format("Unexpected status: %s", status));
+                        logger.atError().log("Unexpected status: %s", status);
                     }
                     return;
                 }
@@ -90,10 +90,8 @@ public class MainActivity extends AppCompatActivity {
                         onNewIcons(response.payload().icons());
                         break;
                     default:
-                        Log.w(TAG,
-                            String.format(
-                                "Unhandled service response from request ID %d",
-                                response.requestId()));
+                        logger.atWarning().log(
+                            "Unhandled service response from request ID %d", response.requestId());
                 }
             }
         }
@@ -132,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             // TODO: Popup a useful message instead of doing nothing.
-            Log.e(TAG, "No Bluetooth adapter available!");
+            logger.atError().log("No Bluetooth adapter available!");
         } else if (!bluetoothAdapter.isEnabled()) {
             Intent requestBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(requestBtIntent, REQUEST_ENABLE_BT);
@@ -150,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.show();
         BluetoothDevice device = bluetoothAdapter.getRemoteDevice(BT_DEVICE_MAC);
         if (device == null) {
-            Log.e(TAG, String.format("Failed to find remote device '%s'", BT_DEVICE_MAC));
+            logger.atError().log("Failed to find remote device '%s'", BT_DEVICE_MAC);
             return;
         }
 
@@ -251,7 +249,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void schedulePeriodicTaskRefresher(int periodSeconds) {
         if (periodicRefreshTask != null) {
-            Log.e(TAG, "Periodic refresh already scheduled!");
+            logger.atError().log("Periodic refresh already scheduled!");
             return;
         }
 
@@ -295,10 +293,10 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_ENABLE_BT) {
             if (resultCode == RESULT_OK) {
-                Log.d(TAG, "User enabled bluetooth request.");
+                logger.atInfo().log("User enabled bluetooth request.");
                 onBluetoothEnabled();
             } else {
-                Log.d(TAG, "User rejected bluetooth request.");
+                logger.atInfo().log("User rejected bluetooth request.");
             }
         }
     }
