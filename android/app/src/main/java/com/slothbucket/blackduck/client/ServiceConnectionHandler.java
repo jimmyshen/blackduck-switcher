@@ -28,15 +28,27 @@ abstract class ServiceConnectionHandler extends Handler {
 
     boolean sendRequest(final ServiceRequest request) {
         return post(new Runnable() {
+
             @Override
             public void run() {
+                int requestId = request.requestId();
                 try {
+                    Log.d(TAG, String.format("Sending request %d: %s", requestId, request));
                     ioBridge.write(request, socket.getOutputStream());
-                    onServiceResponse(ioBridge.read(socket.getInputStream()));
+                    Log.d(TAG, String.format("Request %d sent successfully.", requestId));
                 } catch (IOException e) {
-                    Log.e(TAG,
-                        String.format("Failed to process request %d", request.requestId()), e);
+                    Log.e(TAG, String.format("Failed to process request %d", requestId), e);
                 }
+
+                try {
+                    ServiceResponse response = ioBridge.read(socket.getInputStream());
+                    Log.d(TAG,
+                        String.format("Received response for request %d: %s", requestId, response));
+                    onServiceResponse(response);
+                } catch (IOException e) {
+                    Log.e(TAG, String.format("Failed to process request %d", requestId), e);
+                }
+
             }
         });
     }
