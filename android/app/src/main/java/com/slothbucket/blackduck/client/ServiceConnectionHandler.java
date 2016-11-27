@@ -14,7 +14,8 @@ import java.io.IOException;
  */
 abstract class ServiceConnectionHandler extends Handler {
 
-    private static final FluentLog logger = FluentLog.loggerFor(ServiceConnectionHandler.class);
+    private static final FluentLog logger =
+        FluentLog.loggerFor("blackduck", ServiceConnectionHandler.class);
 
     private final BluetoothSocket socket;
     private final MessageIoBridge ioBridge;

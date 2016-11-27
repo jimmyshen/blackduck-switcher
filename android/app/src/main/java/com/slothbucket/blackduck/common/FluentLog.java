@@ -12,7 +12,11 @@ public final class FluentLog {
     }
 
     public static FluentLog loggerFor(Class<?> clazz) {
-        return new FluentLog(clazz.getName());
+        return new FluentLog(clazz.getSimpleName());
+    }
+
+    public static FluentLog loggerFor(String prefix, Class<?> clazz) {
+        return new FluentLog(String.format("%s%s", prefix, clazz.getSimpleName()));
     }
 
     private FluentLog(String tag) {

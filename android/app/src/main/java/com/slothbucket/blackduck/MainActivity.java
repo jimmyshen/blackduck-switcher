@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final FluentLog logger = FluentLog.loggerFor(MainActivity.class);
+    private static final FluentLog logger = FluentLog.loggerFor("blackduck", MainActivity.class);
 
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int REQUEST_LIST_TASKS_INITIAL = 2;

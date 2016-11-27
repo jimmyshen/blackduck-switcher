@@ -17,8 +17,10 @@ import java.io.IOException;
 import java.util.UUID;
 
 public class BlackDuckService extends Service {
-    private static final FluentLog logger = FluentLog.loggerFor(BlackDuckService.class);
-    private static final UUID SERVICE_UUID = UUID.fromString("7f759fe2-b22a-11e6-ba35-37c9859e1514");
+    private static final FluentLog logger =
+        FluentLog.loggerFor("blackduck", BlackDuckService.class);
+    private static final UUID SERVICE_UUID =
+        UUID.fromString("7f759fe2-b22a-11e6-ba35-37c9859e1514");
 
     private Looper looper;
     private ServiceConnectionHandler connectionHandler;
@@ -97,6 +99,7 @@ public class BlackDuckService extends Service {
     @Override
     public void onDestroy() {
         if (connectionHandler != null) {
+            logger.atDebug().log("Closing connection.");
             connectionHandler.close();
         }
     }
