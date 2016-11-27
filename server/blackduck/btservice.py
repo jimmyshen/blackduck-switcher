@@ -6,9 +6,10 @@ import bluetooth
 import msgpack
 import logging as log
 
+from Queue import Queue
 from threading import Thread
 
-SERVICE_NAME = 'BlackDuckTaskService'
+SERVICE_NAME = 'BlackDuckService'
 SERVICE_UUID = '7f759fe2-b22a-11e6-ba35-37c9859e1514'
 
 
@@ -154,8 +155,23 @@ class BluetoothService(Thread):
         self.daemon = True
         self.screen_manager = screen_manager
         self.handler_factory = HandlerFactory(self)
+        self.unpacker = msgpack.Unpacker()
+        self.requests = Queue()
 
-    def handle_message(self, msg):
+    def _read_socket(self, client_sock):
+        while True:
+            buf = client_sock.recv(128)
+            if not buf:
+                return False
+
+            self.unpacker.feed(buf)
+            for request in self.unpacker:
+                self.requests.put(request)
+
+            if not self.requests.empty():
+                return True
+
+    def _process_request(self, msg):
         command = msg.get('command', '')
         request_id = msg.get('request_id', 0xDEADBEEF)
         payload = msg.get('payload', {})
@@ -163,30 +179,19 @@ class BluetoothService(Thread):
         return handler.handle(payload)
 
     def manage_connection(self, client_sock, client_addr):
-        unpacker = msgpack.Unpacker()
         try:
             while True:
-                log.info('Waiting for messages...')
-                queue = []
-                while True:
-                    buf = client_sock.recv(1024)
-                    if not buf:
-                        break
+                log.info('Waiting for requests...')
+                if not self._read_socket(client_sock):
+                    continue
 
-                    unpacker.feed(buf)
-                    for msg in unpacker:
-                        queue.append(msg)
-
-                    if queue:
-                        break
-
-                for msg in queue:
-                    log.debug('Received message from client %s:\n%s', client_addr, msg)
-                    response = self.handle_message(msg)
-                    client_sock.send(msgpack.packb(response))
-                    log.debug('Sent message to client %s:\n%s', client_addr, response)
-        except Exception as e:
-            log.error('Exception while handling connection.', exc_info=e)
+                request = self.requests.get()
+                log.debug('Received request from client %s:\n%s', client_addr, request)
+                response = self._process_request(request)
+                client_sock.send(msgpack.packb(response))
+                log.debug('Sent message to client %s:\n%s', client_addr, response)
+        except bluetooth.BluetoothError as e:
+            log.error('Bluetooth error while handling connection.', exc_info=e)
         finally:
             client_sock.close()
             log.info('Connection with client %s closed.', client_addr)
