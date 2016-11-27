@@ -20,15 +20,17 @@ import com.slothbucket.blackduck.client.ServiceResponse;
 import com.slothbucket.blackduck.common.FluentLog;
 import com.slothbucket.blackduck.models.Task;
 import com.slothbucket.blackduck.models.TaskIcon;
+import com.slothbucket.blackduck.models.TaskStateManager;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -44,15 +46,13 @@ public class MainActivity extends AppCompatActivity {
     // TODO: Implement automatic device discovery (SDP keeps cycling my adapter!).
     private static final String BT_DEVICE_MAC = "00:02:5B:05:7A:CA";
 
-    private final ConcurrentHashMap<String, Task> taskMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, TaskIcon> iconMap = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private final AtomicLong maxTimestamp = new AtomicLong();
+    private final TaskStateManager taskStateManager = new TaskStateManager();
     private ProgressDialog progressDialog;
     private ScheduledFuture<?> periodicRefreshTask;
     private BluetoothAdapter bluetoothAdapter;
 
-    private final BroadcastReceiver blackduckServiceReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver serviceReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -83,16 +83,16 @@ public class MainActivity extends AppCompatActivity {
 
                 switch (response.requestId()) {
                     case REQUEST_LIST_TASKS_INITIAL:
-                        onInitialTaskLoad(response.payload().tasks());
+                        onListTasksResults(response.payload().tasks(), true);
                         break;
                     case REQUEST_FETCH_ICONS_INITIAL:
-                        onInitialIconLoad(response.payload().icons());
+                        onBatchGetIconResults(response.payload().icons(), true);
                         break;
                     case REQUEST_LIST_TASKS_SYNC:
-                        onTaskUpdates(response.payload().tasks());
+                        onListTasksResults(response.payload().tasks(), false);
                         break;
                     case REQUEST_FETCH_ICONS_SYNC:
-                        onNewIcons(response.payload().icons());
+                        onBatchGetIconResults(response.payload().icons(), false);
                         break;
                     default:
                         logger.atWarning().log(
@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(Constants.ACTION_DEVICE_ERROR);
         intentFilter.addAction(Constants.ACTION_SERVICE_RESPONSE);
         LocalBroadcastManager.getInstance(this)
-            .registerReceiver(blackduckServiceReceiver, intentFilter);
+            .registerReceiver(serviceReceiver, intentFilter);
 
         progressDialog = new ProgressDialog(this, ProgressDialog.STYLE_SPINNER);
         initializeBluetooth();
@@ -174,79 +174,49 @@ public class MainActivity extends AppCompatActivity {
         BlackDuckService.sendRequest(this, request);
     }
 
-    private void onInitialTaskLoad(Iterable<Task> tasks) {
-        taskMap.clear();
-        ArrayList<String> iconIds = new ArrayList<>();
-        long max = 0;
-        for (Task task : tasks) {
-            taskMap.put(task.id(), task);
-            iconIds.add(task.iconId());
-            if (task.lastUpdateTimestamp() > max) {
-                max = task.lastUpdateTimestamp();
+    private void onListTasksResults(Iterable<Task> tasks, boolean isInitialLoad) {
+        Set<String> iconIds = getIconIdsFromTasks(tasks);
+        taskStateManager.updateTasksAsync(tasks);
+
+        if (isInitialLoad) {
+            if (!iconIds.isEmpty()) {
+                progressDialog.setMessage("Fetching task icons...");
+                batchGetIcons(iconIds);
+            } else {
+                progressDialog.dismiss();
+                refreshTaskDisplay();
+            }
+        } else {
+             // Fetch any new icons.
+            List<String> newIconIds = taskStateManager.getMissingTaskIconIds(iconIds);
+            if (!newIconIds.isEmpty()) {
+                batchGetIcons(newIconIds);
+            } else {
+                refreshTaskDisplay();
             }
         }
-        maxTimestamp.set(max);
-
-        progressDialog.setMessage("Fetching task icons...");
-        fetchNewIcons(iconIds);
     }
 
-    private void onInitialIconLoad(Iterable<TaskIcon> taskIcons) {
-        // Initialize icon cache.
-        iconMap.clear();
-        for (TaskIcon icon : taskIcons) {
-            iconMap.put(icon.id(), icon);
-        }
+    private void onBatchGetIconResults(Iterable<TaskIcon> taskIcons, boolean isInitialLoad) {
+        taskStateManager.updateTaskIconsAsync(taskIcons);
 
-        // Schedule periodic refresh of tasks.
-        schedulePeriodicTaskRefresher(5);
-        refreshTaskDisplay();
-
-        progressDialog.dismiss();
-    }
-
-    private void onTaskUpdates(Iterable<Task> tasks) {
-        // Initialize tasks data and fetch icon data.
-        taskMap.clear();
-        ArrayList<String> iconIds = new ArrayList<>();
-        long max = 0;
-        for (Task task : tasks) {
-            taskMap.put(task.id(), task);
-            iconIds.add(task.iconId());
-            if (task.lastUpdateTimestamp() > max) {
-                max = task.lastUpdateTimestamp();
-            }
-        }
-        maxTimestamp.set(max);
-
-        // Fetch any new icons.
-        List<String> newIconIds = getNewIconIds(iconIds);
-        if (!newIconIds.isEmpty()) {
-            fetchNewIcons(newIconIds);
+        if (isInitialLoad) {
+            schedulePeriodicTaskRefresher(5);
+            refreshTaskDisplay();
+            progressDialog.dismiss();
         } else {
             refreshTaskDisplay();
         }
-
-        // TODO: Schedule task/icon garbage sweep when we hit thresholds:
-        // Collect tasks that aren't open and haven't been updated for over N seconds.
-        // Prune icons that are no longer referenced.
     }
 
-    private void onNewIcons(Iterable<TaskIcon> taskIcons) {
-        // Initialize icon cache.
-        for (TaskIcon icon : taskIcons) {
-            iconMap.put(icon.id(), icon);
-        }
+    private void batchGetIcons(Iterable<String> iconIds) {
+        ArrayList<String> iconIdsList = new ArrayList<>();
+        addAllIterableToCollection(iconIdsList, iconIds);
 
-        // TODO: Maybe only refresh tasks that are affected.
-        refreshTaskDisplay();
-    }
-
-    private void fetchNewIcons(List<String> iconIds) {
-        RequestPayload payload = RequestPayload.builder().setIconIds(iconIds).build();
+        RequestPayload payload = RequestPayload.builder().setIconIds(iconIdsList).build();
         ServiceRequest request =
                 ServiceRequest.builder()
-                        .setRequestId(REQUEST_LIST_TASKS_INITIAL)
+                        .setRequestId(REQUEST_FETCH_ICONS_SYNC)
                         .setCommand(Constants.COMMAND_BATCHGET_ICONS)
                         .setPayload(payload)
                         .build();
@@ -264,8 +234,9 @@ public class MainActivity extends AppCompatActivity {
             new Runnable() {
                 @Override
                 public void run() {
+                    long maxTimestamp = taskStateManager.getMaxTimestamp();
                     RequestPayload payload =
-                        RequestPayload.builder().setLastUpdateTimestamp(maxTimestamp.get()).build();
+                        RequestPayload.builder().setLastUpdateTimestamp(maxTimestamp).build();
                     ServiceRequest request =
                         ServiceRequest.builder()
                             .setRequestId(REQUEST_LIST_TASKS_SYNC)
@@ -278,17 +249,6 @@ public class MainActivity extends AppCompatActivity {
             periodSeconds,
             periodSeconds,
             TimeUnit.SECONDS);
-    }
-
-    private List<String> getNewIconIds(Iterable<String> iconIds) {
-        ArrayList<String> newIconIds = new ArrayList<>();
-        for (String iconId : iconIds) {
-            if (!iconMap.containsKey(iconId)) {
-                newIconIds.add(iconId);
-            }
-        }
-
-        return newIconIds;
     }
 
     private void refreshTaskDisplay() {
@@ -305,5 +265,20 @@ public class MainActivity extends AppCompatActivity {
                 logger.atInfo().log("User rejected bluetooth request.");
             }
         }
+    }
+
+    private static <T> void addAllIterableToCollection(
+            Collection<T> collection, Iterable<T> newItems) {
+        for (T item : newItems) {
+            collection.add(item);
+        }
+    }
+
+    private static Set<String> getIconIdsFromTasks(Iterable<Task> tasks) {
+        Set<String> iconIds = new HashSet<>();
+        for (Task task : tasks) {
+            iconIds.add(task.iconId());
+        }
+        return iconIds;
     }
 }

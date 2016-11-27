@@ -36,6 +36,10 @@ public abstract class Task implements Parcelable {
     @JsonProperty("last_update_ts")
     public abstract long lastUpdateTimestamp();
 
+    public boolean newerThan(Task otherTask) {
+        return lastUpdateTimestamp() > otherTask.lastUpdateTimestamp();
+    }
+
     /** Builder for {@link Task}. */
     @AutoValue.Builder
     public abstract static class Builder {
