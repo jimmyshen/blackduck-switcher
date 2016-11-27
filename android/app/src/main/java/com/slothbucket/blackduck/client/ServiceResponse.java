@@ -1,6 +1,7 @@
 package com.slothbucket.blackduck.client;
 
 import android.os.Parcelable;
+import android.support.annotation.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -32,9 +33,20 @@ public abstract class ServiceResponse implements Parcelable {
         @JsonProperty("payload")
         public abstract Builder setPayload(ResponsePayload payload);
 
-        @JsonProperty("error")
+        @JsonProperty(value = "error")
         public abstract Builder setError(String error);
 
-        public abstract ServiceResponse build();
+
+        abstract String error();
+        abstract ServiceResponse autoBuild();
+
+        public ServiceResponse build() {
+            try {
+                error();
+            } catch (IllegalStateException expected) {
+                setError("");
+            }
+            return autoBuild();
+        }
     }
 }

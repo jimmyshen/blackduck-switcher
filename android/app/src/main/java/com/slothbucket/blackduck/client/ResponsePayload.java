@@ -8,6 +8,7 @@ import com.google.auto.value.AutoValue;
 import com.slothbucket.blackduck.models.Task;
 import com.slothbucket.blackduck.models.TaskIcon;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @AutoValue
@@ -28,6 +29,22 @@ public abstract class ResponsePayload implements Parcelable {
         @JsonProperty("icons")
         public abstract Builder setIcons(List<TaskIcon> icons);
 
-        public abstract ResponsePayload build();
+        abstract List<Task> tasks();
+        abstract List<TaskIcon> icons();
+        abstract ResponsePayload autoBuild();
+
+        public ResponsePayload build() {
+            try {
+                tasks();
+            } catch (IllegalStateException expected) {
+                setTasks(new ArrayList<Task>());
+            }
+            try {
+                icons();
+            } catch (IllegalStateException expected) {
+                setIcons(new ArrayList<TaskIcon>());
+            }
+            return autoBuild();
+        }
     }
 }

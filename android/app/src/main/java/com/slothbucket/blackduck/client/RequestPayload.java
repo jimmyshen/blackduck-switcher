@@ -1,10 +1,12 @@
 package com.slothbucket.blackduck.client;
 
+import android.app.DownloadManager;
 import android.os.Parcelable;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.auto.value.AutoValue;
+import com.slothbucket.blackduck.models.TaskIcon;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +29,26 @@ public abstract class RequestPayload implements Parcelable {
         @JsonProperty("last_update_ts")
         public abstract Builder setLastUpdateTimestamp(long lastUpdateTimestamp);
 
-        public abstract RequestPayload build();
+        abstract List<String> iconIds();
+        abstract long lastUpdateTimestamp();
+        abstract RequestPayload autoBuild();
+
+        public RequestPayload build() {
+
+            try {
+                iconIds();
+            } catch (IllegalStateException expected) {
+                setIconIds(new ArrayList<String>());
+            }
+
+            try {
+                lastUpdateTimestamp();
+            } catch (IllegalStateException expected) {
+                setLastUpdateTimestamp(0);
+            }
+
+            return autoBuild();
+        }
     }
 
     public static Builder builder() {
