@@ -90,6 +90,7 @@ class ScreenManager(object):
     
         self.screen.connect('window-opened', self._on_window_open)
         self.screen.connect('window-closed', self._on_window_close)
+        self.initialized = True
 
     def list_tasks(self):
         self._ensure_initialized()

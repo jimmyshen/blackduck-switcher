@@ -3,6 +3,7 @@
 # Author: Jimmy Shen <jimmyshen@slothbucket.com>
 
 import bluetooth
+import msgpack
 import logging as log
 
 from threading import Thread
@@ -29,7 +30,7 @@ class Context(object):
     def __init__(self, request_id, command, screen_manager):
         self.request_id = request_id
         self.command = command
-        self.screen_manager
+        self.screen_manager = screen_manager
 
 
 class Handler(object):
@@ -37,7 +38,7 @@ class Handler(object):
         self.context = context
 
     def response(self, status, **kwargs):
-        response = {'status': status, 'request_id': context.request_id}
+        response = {'status': status, 'request_id': self.context.request_id}
         response.update(kwargs)
         return response
 
@@ -133,7 +134,8 @@ class ActivateTaskHandler(Handler):
 
 
 class HandlerFactory(object):
-    def __init__(self):
+    def __init__(self, parent):
+        self.parent = parent
         self.handlers = {
             Command.LIST_TASKS: ListTasksHandler,
             Command.LIST_UPDATED_TASKS: ListUpdatedTasksHandler,
@@ -143,7 +145,7 @@ class HandlerFactory(object):
 
     def create(self, command_name, request_id):
         builder = self.handlers.get(command_name, BlackHoleHandler)
-        return builder(request_id)
+        return builder(Context(request_id, command_name, self.parent.screen_manager))
 
 
 class BluetoothService(Thread):
@@ -151,7 +153,7 @@ class BluetoothService(Thread):
         super(BluetoothService, self).__init__(name='BluetoothService')
         self.daemon = True
         self.screen_manager = screen_manager
-        self.handler_factory = HandlerFactory()
+        self.handler_factory = HandlerFactory(self)
 
     def handle_message(self, msg):
         if 'command' not in msg:
@@ -166,17 +168,20 @@ class BluetoothService(Thread):
     def manage_connection(self, client_sock, client_addr):
         class SocketFileImpl(object):
             # Give socket a file-like API to make msgpack stream deserializer happy.
-            def read(_, bytelen):
-                data = client_sock.recv(bytelen)
-                log.debug('Read %d bytes from client %s.', len(data), client_addr)
-                return data
+            def read(_, bytelen=None):
+                bytelen = bytelen or 1024
+                return client_sock.recv(bytelen)
 
         try:
             while True:
+                log.info('Waiting for message...')
                 msg = msgpack.unpack(SocketFileImpl())
-                response = msgpack.pack(self.handle_message(msg))
-                log.debug('Writing %d bytes to client %s.', len(response), client_addr)
-                client_sock.write(response)
+                log.debug('Client %s sent message: %s', client_addr, msg)
+                response = msgpack.packb(self.handle_message(msg))
+                client_sock.send(response)
+                #log.debug('Server sent message (%d bytes) to client %s', len(response), client_addr)
+        except Exception as e:
+            log.exception('Exception while handling connection.', exc_info=e)
         finally:
             client_sock.close()
             log.info('Connection with client %s closed.', client_addr)
@@ -199,15 +204,12 @@ class BluetoothService(Thread):
                 log.info('Waiting for connection from client...')
                 client_sock, client_addr = sock.accept()
                 log.info('Accepted connection from client %s.', client_addr)
-                manage_connection(client_sock, client_addr)
+                self.manage_connection(client_sock, client_addr)
         except KeyboardInterrupt:
             log.info('User requested termination.')
         finally:
+            bluetooth.stop_advertising(sock)
             sock.close()
-            try:
-                bluetooth.stop_advertising(sock)
-            except Exception:
-                pass
             log.info('Bluetooth service stopped.')
 
 
