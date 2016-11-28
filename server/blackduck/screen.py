@@ -15,6 +15,7 @@ class ScreenManager(object):
 
         self.tasks = {}
         self.icons = {}
+        self.windows_by_task_id = {}
 
     def _encode_pixels(self, pixels):
         return base64.standard_b64encode(pixels.encode('zlib_codec'))
@@ -60,6 +61,7 @@ class ScreenManager(object):
 
         task = self._window_to_task(window, long(time()))
         self.tasks[task['id']] = task
+        self.windows_by_task_id[task['id']] = window
 
     def _on_window_close(self, screen, window):
         if not self._is_eligible_window(window):
@@ -72,6 +74,9 @@ class ScreenManager(object):
             task = self.tasks[task_id]
             task['is_open'] = False
             task['last_update_ts'] = long(time())
+
+        if task_id in self.windows_by_task_id:
+            del self.windows_by_task_id[task_id]
 
     def _ensure_initialized(self):
         if not self.initialized:
@@ -88,6 +93,7 @@ class ScreenManager(object):
         for window in ifilter(self._is_eligible_window, self.screen.get_windows()):
             task = self._window_to_task(window, seed_ts)
             self.tasks[task['id']] = task
+            self.windows_by_task_id[task['id']] = window
 
         log.info('ScreenManager initialized with %d tasks and %d icons.',
             len(self.tasks), len(self.icons))
@@ -104,12 +110,18 @@ class ScreenManager(object):
         self._ensure_initialized()
         return self.icons.get(icon_id, {})
 
-    def activate_task(self, window_id):
+    def activate_task(self, task_id):
         self._ensure_initialized()
-        def impl():
-            window = self.screen.get_window(window_id)
-            window.activate(long(time()))
+        if task_id in self.windows_by_task_id:
+            window = self.windows_by_task_id[task_id]
 
-        GLib.idle_add(impl)
+            def impl():
+                window.activate(long(time()))
+
+            GLib.idle_add(impl)
+
+            return True
+
+        return False
 
 

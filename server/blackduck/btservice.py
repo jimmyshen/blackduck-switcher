@@ -128,7 +128,7 @@ class ActivateTaskHandler(Handler):
     def __init__(self, context):
         super(ActivateTaskHandler, self).__init__(context)
 
-    def handler(self, payload):
+    def handle(self, payload):
         if 'task_id' not in payload:
             return self.client_error_response('Missing "task_id" in payload.')
 
