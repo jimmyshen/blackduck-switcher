@@ -80,7 +80,7 @@ class ListTasksHandler(Handler):
         try:
             return self.ok_response({'tasks': self.context.screen_manager.list_tasks()})
         except Exception as e:
-            return self.server_error_response(e, 'Could not list tasks')
+            return self.server_error_response(e, 'Internal error trying to list tasks.')
 
 
 class ListUpdatedTasksHandler(Handler):
@@ -100,7 +100,7 @@ class ListUpdatedTasksHandler(Handler):
 
             return self.ok_response({'tasks': tasks})
         except Exception as e:
-            return self.server_error_response(e, 'Could not get task updates since %s', payload['last_update_ts'])
+            return self.server_error_response(e, 'Internal error listing task updates.')
 
 
 class BatchGetIconsHandler(Handler):
@@ -112,10 +112,16 @@ class BatchGetIconsHandler(Handler):
             return self.client_error_response('Missing "icon_ids" in payload.')
 
         try:
-            icons = [self.screen_manager.get_icon(icon_id) for icon_id in payload['icon_ids']]
+            icons = []
+            for icon_id in payload['icon_ids']:
+                icon = self.context.screen_manager.get_icon(icon_id)
+                if not icon:
+                    return self.client_error_response('Could not find icon with ID %s', icon_id)
+
+                icons.append(icon)
             return self.ok_response({'icons': icons})
         except Exception as e:
-            return self.server_error_response(e, 'Could not get icon with ID %s', payload['icon_id'])
+            return self.server_error_response(e, 'Internal error fetching icons.')
 
 
 class ActivateTaskHandler(Handler):
@@ -131,7 +137,7 @@ class ActivateTaskHandler(Handler):
             self.context.screen_manager.activate_task(task_id)
             return self.ok_response()
         except Exception as e:
-            return self.server_error_response(e, 'Could not activate task with ID %s', payload['task_id'])
+            return self.server_error_response(e, 'Internal error activating task.')
 
 
 class HandlerFactory(object):
