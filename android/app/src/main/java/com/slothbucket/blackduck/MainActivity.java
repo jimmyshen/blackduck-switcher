@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.widget.GridView;
 
 import com.slothbucket.blackduck.client.BlackDuckService;
 import com.slothbucket.blackduck.client.Constants;
@@ -56,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            logger.atDebug().log("Received action %s", action);
             if (Constants.ACTION_DEVICE_CONNECTED.equals(action)) {
                 progressDialog.setMessage("Fetching running tasks...");
                 onDeviceConnected();
@@ -114,6 +116,10 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(Constants.ACTION_SERVICE_RESPONSE);
         LocalBroadcastManager.getInstance(this)
             .registerReceiver(serviceReceiver, intentFilter);
+
+        // Configure grid view.
+        GridView taskGridView = (GridView) findViewById(R.id.task_grid);
+        taskGridView.setAdapter(new TaskItemAdapter(this, taskStateManager));
 
         progressDialog = new ProgressDialog(this, ProgressDialog.STYLE_SPINNER);
         initializeBluetooth();
@@ -181,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
         if (isInitialLoad) {
             if (!iconIds.isEmpty()) {
                 progressDialog.setMessage("Fetching task icons...");
-                batchGetIcons(iconIds);
+                batchGetIcons(REQUEST_FETCH_ICONS_INITIAL, iconIds);
             } else {
                 progressDialog.dismiss();
                 refreshTaskDisplay();
@@ -190,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
              // Fetch any new icons.
             List<String> newIconIds = taskStateManager.getMissingTaskIconIds(iconIds);
             if (!newIconIds.isEmpty()) {
-                batchGetIcons(newIconIds);
+                batchGetIcons(REQUEST_FETCH_ICONS_SYNC, newIconIds);
             } else {
                 refreshTaskDisplay();
             }
@@ -200,6 +206,7 @@ public class MainActivity extends AppCompatActivity {
     private void onBatchGetIconResults(Iterable<TaskIcon> taskIcons, boolean isInitialLoad) {
         taskStateManager.updateTaskIconsAsync(taskIcons);
 
+        logger.atDebug().log("Processing icon results.");
         if (isInitialLoad) {
             schedulePeriodicTaskRefresher(5);
             refreshTaskDisplay();
@@ -209,14 +216,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void batchGetIcons(Iterable<String> iconIds) {
+    private void batchGetIcons(int requestId, Iterable<String> iconIds) {
         ArrayList<String> iconIdsList = new ArrayList<>();
         addAllIterableToCollection(iconIdsList, iconIds);
 
         RequestPayload payload = RequestPayload.builder().setIconIds(iconIdsList).build();
         ServiceRequest request =
                 ServiceRequest.builder()
-                        .setRequestId(REQUEST_FETCH_ICONS_SYNC)
+                        .setRequestId(requestId)
                         .setCommand(Constants.COMMAND_BATCHGET_ICONS)
                         .setPayload(payload)
                         .build();
@@ -252,7 +259,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshTaskDisplay() {
-        // TODO: Implement.
+        GridView taskGridView = (GridView) findViewById(R.id.task_grid);
+        ((TaskItemAdapter) taskGridView.getAdapter()).notifyDataSetChanged();
     }
 
     @Override

@@ -31,6 +31,12 @@ public class TaskStateManager {
         return results;
     }
 
+    public TaskIcon getTaskIconById(String iconId) {
+        synchronized (taskIcons) {
+            return taskIcons.get(iconId);
+        }
+    }
+
     public List<String> getMissingTaskIconIds(Iterable<String> iconIds) {
         List<String> results = new ArrayList<>();
         synchronized (taskIcons) {
