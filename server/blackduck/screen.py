@@ -5,7 +5,7 @@ from time import time
 from itertools import ifilter
 import base64
 
-from gi.repository import GLib
+from gi.repository import GLib, Wnck
 
 
 class ScreenManager(object):
@@ -50,8 +50,7 @@ class ScreenManager(object):
         }
 
     def _is_eligible_window(self, window):
-        # TODO: Check if care about window type.
-        return True
+        return window.get_window_type() == Wnck.WindowType.NORMAL
 
     def _on_window_open(self, screen, window):
         if not self._is_eligible_window(window):
