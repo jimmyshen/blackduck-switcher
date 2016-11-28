@@ -36,16 +36,23 @@ public abstract class ServiceResponse implements Parcelable {
         @JsonProperty(value = "error")
         public abstract Builder setError(String error);
 
-
+        abstract ResponsePayload payload();
         abstract String error();
         abstract ServiceResponse autoBuild();
 
         public ServiceResponse build() {
             try {
+                payload();
+            } catch (IllegalStateException expected) {
+                setPayload(ResponsePayload.empty());
+            }
+
+            try {
                 error();
             } catch (IllegalStateException expected) {
                 setError("");
             }
+
             return autoBuild();
         }
     }

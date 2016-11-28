@@ -24,9 +24,9 @@ public abstract class TaskIcon implements Parcelable {
     @JsonProperty("height")
     public abstract int height();
 
-    /** Raw RGBA color info for icon. */
+    /** Encoded pixel data. */
     @JsonProperty("pixels")
-    public abstract int[] pixels();
+    public abstract String pixels();
 
     @AutoValue.Builder
     public abstract static class Builder {
@@ -40,7 +40,7 @@ public abstract class TaskIcon implements Parcelable {
         public abstract Builder setHeight(int height);
 
         @JsonProperty("pixels")
-        public abstract Builder setPixels(int[] pixels);
+        public abstract Builder setPixels(String pixels);
 
         public abstract TaskIcon build();
     }

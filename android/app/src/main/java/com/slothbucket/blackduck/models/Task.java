@@ -63,4 +63,8 @@ public abstract class Task implements Parcelable {
 
         public abstract Task build();
     }
+
+    public static Builder builder() {
+        return new AutoValue_Task.Builder();
+    }
 }

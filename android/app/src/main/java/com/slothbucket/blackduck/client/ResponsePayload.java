@@ -47,4 +47,12 @@ public abstract class ResponsePayload implements Parcelable {
             return autoBuild();
         }
     }
+
+    public static Builder builder() {
+        return new AutoValue_ResponsePayload.Builder();
+    }
+
+    public static ResponsePayload empty() {
+        return builder().build();
+    }
 }
