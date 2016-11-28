@@ -3,11 +3,16 @@ package com.slothbucket.blackduck;
 import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.slothbucket.blackduck.client.BlackDuckService;
+import com.slothbucket.blackduck.client.Constants;
+import com.slothbucket.blackduck.client.RequestPayload;
+import com.slothbucket.blackduck.client.ServiceRequest;
 import com.slothbucket.blackduck.common.Preconditions;
 import com.slothbucket.blackduck.models.Task;
 import com.slothbucket.blackduck.models.TaskIcon;
@@ -17,6 +22,27 @@ class TaskItemAdapter extends BaseAdapter {
 
     private final Context context;
     private final TaskStateManager taskStateManager;
+
+    static class TaskItemClickListener implements AdapterView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+            TaskItemAdapter adapter = (TaskItemAdapter) adapterView.getAdapter();
+            Task task = (Task) adapter.getItem(i);
+
+            if (task != null) {
+                ServiceRequest serviceRequest =
+                        ServiceRequest.builder()
+                            .setRequestId(RequestConstants.REQUEST_ACTIVATE_TASK)
+                            .setCommand(Constants.COMMAND_ACTIVATE_TASK)
+                            .setPayload(
+                                RequestPayload.builder()
+                                    .setTaskId(task.id())
+                                    .build())
+                            .build();
+                BlackDuckService.sendRequest(view.getContext(), serviceRequest);
+            }
+        }
+    }
 
     TaskItemAdapter(Context context, TaskStateManager taskStateManager) {
         this.context = context;

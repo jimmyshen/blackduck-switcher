@@ -37,13 +37,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static final FluentLog logger = FluentLog.loggerFor("blackduck", MainActivity.class);
 
-    private static final int REQUEST_ENABLE_BT = 1;
-    private static final int REQUEST_LIST_TASKS_INITIAL = 2;
-    private static final int REQUEST_LIST_TASKS_SYNC = 3;
-    private static final int REQUEST_FETCH_ICONS_INITIAL = 4;
-    private static final int REQUEST_FETCH_ICONS_SYNC = 5;
-    private static final int REQUEST_ACTIVATE_TASK = 6;
-
     // TODO: Implement automatic device discovery (SDP keeps cycling my adapter!).
     private static final String BT_DEVICE_MAC = "00:02:5B:05:7A:CA";
 
@@ -84,17 +77,20 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 switch (response.requestId()) {
-                    case REQUEST_LIST_TASKS_INITIAL:
+                    case RequestConstants.REQUEST_LIST_TASKS_INITIAL:
                         onListTasksResults(response.payload().tasks(), true);
                         break;
-                    case REQUEST_FETCH_ICONS_INITIAL:
+                    case RequestConstants.REQUEST_FETCH_ICONS_INITIAL:
                         onBatchGetIconResults(response.payload().icons(), true);
                         break;
-                    case REQUEST_LIST_TASKS_SYNC:
+                    case RequestConstants.REQUEST_LIST_TASKS_SYNC:
                         onListTasksResults(response.payload().tasks(), false);
                         break;
-                    case REQUEST_FETCH_ICONS_SYNC:
+                    case RequestConstants.REQUEST_FETCH_ICONS_SYNC:
                         onBatchGetIconResults(response.payload().icons(), false);
+                        break;
+                    case RequestConstants.REQUEST_ACTIVATE_TASK:
+                        logger.atDebug().log("Task activation succeeded.");
                         break;
                     default:
                         logger.atWarning().log(
@@ -120,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
         // Configure grid view.
         GridView taskGridView = (GridView) findViewById(R.id.task_grid);
         taskGridView.setAdapter(new TaskItemAdapter(this, taskStateManager));
+        taskGridView.setOnItemClickListener(new TaskItemAdapter.TaskItemClickListener());
 
         progressDialog = new ProgressDialog(this, ProgressDialog.STYLE_SPINNER);
         initializeBluetooth();
@@ -145,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
             logger.atError().log("No Bluetooth adapter available!");
         } else if (!bluetoothAdapter.isEnabled()) {
             Intent requestBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(requestBtIntent, REQUEST_ENABLE_BT);
+            startActivityForResult(requestBtIntent, RequestConstants.REQUEST_ENABLE_BT);
         } else {
             onBluetoothEnabled();
         }
@@ -173,7 +170,7 @@ public class MainActivity extends AppCompatActivity {
     private void onDeviceConnected() {
         ServiceRequest request =
             ServiceRequest.builder()
-                .setRequestId(REQUEST_LIST_TASKS_INITIAL)
+                .setRequestId(RequestConstants.REQUEST_LIST_TASKS_INITIAL)
                 .setCommand(Constants.COMMAND_LIST_TASKS)
                 .setPayload(RequestPayload.empty())
                 .build();
@@ -187,7 +184,7 @@ public class MainActivity extends AppCompatActivity {
         if (isInitialLoad) {
             if (!iconIds.isEmpty()) {
                 progressDialog.setMessage("Fetching task icons...");
-                batchGetIcons(REQUEST_FETCH_ICONS_INITIAL, iconIds);
+                batchGetIcons(RequestConstants.REQUEST_FETCH_ICONS_INITIAL, iconIds);
             } else {
                 progressDialog.dismiss();
                 refreshTaskDisplay();
@@ -196,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
              // Fetch any new icons.
             List<String> newIconIds = taskStateManager.getMissingTaskIconIds(iconIds);
             if (!newIconIds.isEmpty()) {
-                batchGetIcons(REQUEST_FETCH_ICONS_SYNC, newIconIds);
+                batchGetIcons(RequestConstants.REQUEST_FETCH_ICONS_SYNC, newIconIds);
             } else {
                 refreshTaskDisplay();
             }
@@ -246,7 +243,7 @@ public class MainActivity extends AppCompatActivity {
                         RequestPayload.builder().setLastUpdateTimestamp(maxTimestamp).build();
                     ServiceRequest request =
                         ServiceRequest.builder()
-                            .setRequestId(REQUEST_LIST_TASKS_SYNC)
+                            .setRequestId(RequestConstants.REQUEST_LIST_TASKS_SYNC)
                             .setCommand(Constants.COMMAND_LIST_UPDATED_TASKS)
                             .setPayload(payload)
                             .build();
@@ -265,7 +262,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_ENABLE_BT) {
+        if (requestCode == RequestConstants.REQUEST_ENABLE_BT) {
             if (resultCode == RESULT_OK) {
                 logger.atInfo().log("User enabled bluetooth request.");
                 onBluetoothEnabled();
