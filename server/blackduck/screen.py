@@ -3,6 +3,7 @@ import logging as log
 from hashlib import md5
 from time import time
 from itertools import ifilter
+import base64
 
 from gi.repository import GLib
 
@@ -16,7 +17,7 @@ class ScreenManager(object):
         self.icons = {}
 
     def _encode_pixels(self, pixels):
-        return pixels.encode('zlib_codec')
+        return base64.standard_b64encode(pixels.encode('zlib_codec'))
 
     def _cache_icon(self, icon):
         pixels = icon.get_pixels()
@@ -57,7 +58,7 @@ class ScreenManager(object):
 
         log.debug('Window %d opened.', window.get_xid())
 
-        task = self._window_to_task(window, time())
+        task = self._window_to_task(window, long(time()))
         self.tasks[task['id']] = task
 
     def _on_window_close(self, screen, window):
@@ -68,8 +69,9 @@ class ScreenManager(object):
 
         task_id = str(window.get_xid())
         if task_id in self.tasks:
-            self.tasks['is_open'] = False
-            self.tasks['last_update_ts'] = time()
+            task = self.tasks[task_id]
+            task['is_open'] = False
+            task['last_update_ts'] = long(time())
 
     def _ensure_initialized(self):
         if not self.initialized:
@@ -82,7 +84,7 @@ class ScreenManager(object):
 
         self.screen.force_update()
         self.icons = {}
-        seed_ts = time()
+        seed_ts = long(time())
         for window in ifilter(self._is_eligible_window, self.screen.get_windows()):
             task = self._window_to_task(window, seed_ts)
             self.tasks[task['id']] = task
@@ -106,7 +108,7 @@ class ScreenManager(object):
         self._ensure_initialized()
         def impl():
             window = self.screen.get_window(window_id)
-            window.activate(time())
+            window.activate(long(time()))
 
         GLib.idle_add(impl)
 
