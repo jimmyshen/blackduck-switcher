@@ -8,13 +8,15 @@ from gi.repository import GLib
 
 
 class ScreenManager(object):
-    def __init__(self, screen, compress_icons=True):
+    def __init__(self, screen):
         self.screen = screen
         self.initialized = False
-        self.compress_icons = compress_icons
 
         self.tasks = {}
         self.icons = {}
+
+    def _encode_pixels(self, pixels):
+        return pixels.encode('zlib_codec')
 
     def _cache_icon(self, icon):
         pixels = icon.get_pixels()
@@ -28,7 +30,7 @@ class ScreenManager(object):
                 'id': icon_id,
                 'width': icon.get_width(),
                 'height': icon.get_height(),
-                'pixels': pixels.encode('zlib_codec') if self.compress_icons else pixels,
+                'pixels': self._encode_pixels(pixels),
             }
 
         return icon_id
@@ -98,7 +100,7 @@ class ScreenManager(object):
 
     def get_icon(self, icon_id):
         self._ensure_initialized()
-        return self.icon_cache.get(icon_id, {})
+        return self.icons.get(icon_id, {})
 
     def activate_task(self, window_id):
         self._ensure_initialized()
