@@ -85,8 +85,12 @@ public class TaskStateManager {
                     synchronized (tasks) {
                         for (Task task : newTasks) {
                             String taskId = task.id();
-                            if (!tasks.containsKey(taskId) || task.newerThan(tasks.get(taskId))) {
+                            boolean existingTask = tasks.containsKey(taskId);
+                            if (task.isOpen() &&
+                                (!existingTask || task.newerThan(tasks.get(taskId)))) {
                                 tasks.put(taskId, task);
+                            } else if (!task.isOpen() && existingTask) {
+                                tasks.remove(taskId);
                             }
 
                             if (task.lastUpdateTimestamp() > newMaxTimestamp) {
