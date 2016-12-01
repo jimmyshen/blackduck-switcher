@@ -1,6 +1,5 @@
 package com.slothbucket.blackduck;
 
-import android.app.Activity;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -8,6 +7,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -115,6 +115,8 @@ public class MainActivity extends AppCompatActivity {
 
         // Configure grid view.
         GridView taskGridView = (GridView) findViewById(R.id.task_grid);
+        taskGridView.setNumColumns(
+            getNumColumnsForOrientation(getResources().getConfiguration().orientation));
         taskGridView.setAdapter(new TaskItemAdapter(this, taskStateManager));
         taskGridView.setOnItemClickListener(new TaskItemAdapter.TaskItemClickListener());
 
@@ -233,7 +235,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        final Activity thisActivity = this;
         periodicRefreshTask = scheduler.scheduleWithFixedDelay(
             new Runnable() {
                 @Override
@@ -247,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
                             .setCommand(Constants.COMMAND_LIST_UPDATED_TASKS)
                             .setPayload(payload)
                             .build();
-                    BlackDuckService.sendRequest(thisActivity, request);
+                    BlackDuckService.sendRequest(MainActivity.this, request);
                 }
             },
             periodSeconds,
@@ -270,6 +271,17 @@ public class MainActivity extends AppCompatActivity {
                 logger.atInfo().log("User rejected bluetooth request.");
             }
         }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        GridView taskGrid = (GridView) findViewById(R.id.task_grid);
+        taskGrid.setNumColumns(getNumColumnsForOrientation(newConfig.orientation));
+    }
+
+    private static int getNumColumnsForOrientation(int orientation) {
+        return (orientation == Configuration.ORIENTATION_LANDSCAPE) ? 6 : 3;
     }
 
     private static <T> void addAllIterableToCollection(

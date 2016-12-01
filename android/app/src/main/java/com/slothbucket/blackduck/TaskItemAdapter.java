@@ -1,12 +1,11 @@
 package com.slothbucket.blackduck;
 
 import android.content.Context;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.slothbucket.blackduck.client.BlackDuckService;
@@ -19,10 +18,6 @@ import com.slothbucket.blackduck.models.TaskIcon;
 import com.slothbucket.blackduck.models.TaskStateManager;
 
 class TaskItemAdapter extends BaseAdapter {
-
-    private final Context context;
-    private final TaskStateManager taskStateManager;
-
     static class TaskItemClickListener implements AdapterView.OnItemClickListener {
         @Override
         public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
@@ -31,22 +26,25 @@ class TaskItemAdapter extends BaseAdapter {
 
             if (task != null) {
                 ServiceRequest serviceRequest =
-                        ServiceRequest.builder()
-                            .setRequestId(RequestConstants.REQUEST_ACTIVATE_TASK)
-                            .setCommand(Constants.COMMAND_ACTIVATE_TASK)
-                            .setPayload(
-                                RequestPayload.builder()
-                                    .setTaskId(task.id())
-                                    .build())
-                            .build();
+                    ServiceRequest.builder()
+                        .setRequestId(RequestConstants.REQUEST_ACTIVATE_TASK)
+                        .setCommand(Constants.COMMAND_ACTIVATE_TASK)
+                        .setPayload(
+                            RequestPayload.builder()
+                                .setTaskId(task.id())
+                                .build())
+                        .build();
                 BlackDuckService.sendRequest(view.getContext(), serviceRequest);
             }
         }
     }
 
+    private final TaskStateManager taskStateManager;
+    private final LayoutInflater inflater;
+
     TaskItemAdapter(Context context, TaskStateManager taskStateManager) {
-        this.context = context;
         this.taskStateManager = Preconditions.checkNotNull(taskStateManager);
+        this.inflater = LayoutInflater.from(context);
     }
 
     @Override
@@ -66,40 +64,26 @@ class TaskItemAdapter extends BaseAdapter {
 
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
-        LinearLayout linearLayout;
-        TextView textView;
-        ImageView imageView;
+        TaskIconView iconView;
+        TextView titleView;
 
         if (view == null) {
-            linearLayout = new LinearLayout(context);
-
-            imageView = new ImageView(context);
-            imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            imageView.setScaleX(1.5f);
-            imageView.setScaleY(1.5f);
-
-            textView = new TextView(context);
-            textView.setPadding(10, 10, 10, 10);
-            textView.setWidth(320);
-            textView.setHeight(48);
-            textView.setTextSize(24);
-
-            linearLayout.addView(imageView);
-            linearLayout.addView(textView);
-        } else {
-            linearLayout = (LinearLayout) view;
-            imageView = (ImageView) linearLayout.getChildAt(0);
-            textView = (TextView) linearLayout.getChildAt(1);
+            // Construct view from layout XML.
+            view = inflater.inflate(R.layout.taskgrid_item, viewGroup, false);
+            view.setTag(R.id.task_icon, view.findViewById(R.id.task_icon));
+            view.setTag(R.id.task_title, view.findViewById(R.id.task_title));
         }
+
+        iconView = (TaskIconView) view.getTag(R.id.task_icon);
+        titleView = (TextView) view.getTag(R.id.task_title);
 
         Task task = (Task) getItem(i);
         TaskIcon icon = taskStateManager.getTaskIconById(task.iconId());
         if (icon != null) {
-            imageView.setImageBitmap(icon.getPixelsAsBitmap());
+            iconView.setImageBitmap(icon.getPixelsAsBitmap());
         }
-        textView.setText(getDisplayText(task));
-
-        return linearLayout;
+        titleView.setText(getDisplayText(task));
+        return view;
     }
 
     private static String getDisplayText(Task task) {
