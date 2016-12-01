@@ -49,12 +49,12 @@ class TaskItemAdapter extends BaseAdapter {
 
     @Override
     public int getCount() {
-        return taskStateManager.getTasks().size();
+        return taskStateManager.getTaskCount();
     }
 
     @Override
     public Object getItem(int i) {
-        return taskStateManager.getTasks().get(i);
+        return taskStateManager.getTasksSortedByAppName().get(i);
     }
 
     @Override
@@ -80,6 +80,7 @@ class TaskItemAdapter extends BaseAdapter {
         Task task = (Task) getItem(i);
         TaskIcon icon = taskStateManager.getTaskIconById(task.iconId());
         if (icon != null) {
+            // TODO: Set a default bitmap resource when icon is not available.
             iconView.setImageBitmap(icon.getPixelsAsBitmap());
         }
         titleView.setText(getDisplayText(task));
