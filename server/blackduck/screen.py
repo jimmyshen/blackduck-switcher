@@ -8,73 +8,160 @@ import base64
 from gi.repository import GLib, Wnck
 
 
-class ScreenManager(object):
-    def __init__(self, screen):
-        self.screen = screen
-        self.initialized = False
+def now():
+    return long(time())
 
-        self.tasks = {}
-        self.icons = {}
-        self.windows_by_task_id = {}
-        self.window_handler_ids = {}
 
-    def _encode_pixels(self, pixels):
+class TaskIconCache(object):
+    """Manages the cache of icons associated to tasks."""
+
+    def __init__(self):
+        self.cache = {}
+        self.refcounts = {}
+
+    @property
+    def size(self):
+        return len(self.cache)
+
+    def encode_pixels(self, pixels):
         return base64.standard_b64encode(pixels.encode('zlib_codec'))
 
-    def _cache_icon(self, icon):
-        pixels = icon.get_pixels()
+    def store(self, pxbuf):
+        """Caches an Gtk pixel buffer object."""
+
+        pixels = pxbuf.get_pixels()
 
         hasher = md5()
         hasher.update(pixels)
         icon_id = hasher.hexdigest()
 
-        if icon_id not in self.icons:
-            self.icons[icon_id] = {
+        if icon_id in self.cache:
+            self.refcounts[icon_id] += 1
+        else:
+            self.cache[icon_id] = {
                 'id': icon_id,
-                'width': icon.get_width(),
-                'height': icon.get_height(),
-                'pixels': self._encode_pixels(pixels),
+                'width': pxbuf.get_width(),
+                'height': pxbuf.get_height(),
+                'pixels': self.encode_pixels(pixels),
             }
+            self.refcounts[icon_id] = 1
 
         return icon_id
 
-    def _window_to_task(self, window, last_update_ts):
-        icon_id = self._cache_icon(window.get_icon())
+    def deref(self, icon_id):
+        if icon_id in self.cache:
+            self.refcounts[icon_id] -= 1
+            if self.refcounts[icon_id] == 0:
+                del self.cache[icon_id]
 
+    def fetch(self, icon_id):
+        return self.cache.get(icon_id, {})
+
+    def collect_garbage(self):
+        # TODO: Not used yet. Concerns about clients possibly fetching orphaned icon IDs.
+        for icon_id, refcount in self.refcounts.viewitems():
+            if refcount <= 0:
+                del self.cache[icon_id]
+                del self.refcounts[icon_id]
+
+
+class Task(object):
+    """Internal representation of a Wnck window tracked by the screen manager."""
+
+    def __init__(self, window, icon_cache):
+        self.window = window
+        self.icon_cache = icon_cache
+
+        self.is_open = True
+        self.last_update_ts = now()
+        self.connected_handler_ids = set()
+        self.icon_id = icon_cache.store(self.window.get_icon())
+
+        self._refresh_properties()
+
+    def __str__(self):
+        return 'Window #%d ("%s")' % (self.window_id, self.title)
+
+    def connect_signal(self, signal, callback):
+        assert self.window is not None
+        """Connect signal handlers for this window."""
+        handler_id = self.window.connect(signal, callback)
+        if handler_id > 0:
+            self.connected_handler_ids.add(handler_id)
+
+    def _bump_update_time(self, ts=None):
+        self.last_update_ts = ts or now()
+
+    def replace_window(self, window, update_ts=None):
+        assert self.window is not None and window.get_xid() == self.window_id
+        self.window = window
+        self._refresh_properties()
+        self._bump_update_time()
+
+    def _refresh_properties(self):
+        self.task_id = str(self.window.get_xid())
+        self.window_id = self.window.get_xid()
+        self.app_name = self.window.get_application().get_name()
+        self.title = self.window.get_name()
+
+    def focus(self):
+        if self.window and self.is_open:
+            self.window.activate(now())
+
+    def close(self):
+        self.is_open = False
+        self._bump_update_time()
+
+        # Disconnect all signal handlers
+        for handler_id in self.connected_handler_ids:
+            self.window.disconnect(handler_id)
+        self.connected_handler_ids = set()
+        self.icon_cache.deref(self.icon_id)
+        self.window = None
+
+    def to_json(self):
         return {
-            'id': str(window.get_xid()),
-            'app_name': window.get_application().get_name(),
-            'title': window.get_name(),
-            'icon_id': icon_id,
-            'is_open': True,
-            'last_update_ts': last_update_ts,
+            'id': self.task_id,
+            'app_name': self.app_name,
+            'title': self.title,
+            'icon_id': self.icon_id,
+            'is_open': self.is_open,
+            'last_update_ts': self.last_update_ts,
         }
+
+
+
+class ScreenManager(object):
+    def __init__(self, screen):
+        self.screen = screen
+        self.initialized = False
+        self.icon_cache = TaskIconCache()
+        self.tasks = {}
+
+    def _ensure_initialized(self):
+        if not self.initialized:
+            raise Exception('ScreenManager is not initialized!')
 
     def _is_eligible_window(self, window):
         return window.get_window_type() == Wnck.WindowType.NORMAL
 
     def _on_window_name_changed(self, window, *args):
-        log.debug('Received "name-changed" for window %s (%s)', window.get_xid(), window.get_name())
-        task = self._window_to_task(window, long(time()))
-        self.tasks[task['id']] = task
-
-    def _connect_window_signals(self, window):
         window_id = window.get_xid()
-        if window_id not in self.window_handler_ids:
-            handler_id = window.connect('name-changed', self._on_window_name_changed)
-            if handler_id > 0:
-                self.window_handler_ids[window_id] = handler_id
+        log.debug('Received "name-changed" for window %s (%s)', window_id, window.get_name())
+        if window_id in self.tasks:
+            task = self.tasks[window_id]
+            task.replace_window(window)
 
     def _on_window_open(self, screen, window):
         if not self._is_eligible_window(window):
             return
 
-        log.debug('Window %d opened.', window.get_xid())
+        window_id = window.get_xid()
+        log.debug('Window %d opened.', window_id)
 
-        task = self._window_to_task(window, long(time()))
-        self.tasks[task['id']] = task
-        self.windows_by_task_id[task['id']] = window
-        self._connect_window_signals(window)
+        new_task = Task(window, self.icon_cache)
+        new_task.connect_signal('name-changed', self._on_window_name_changed)
+        self.tasks[window_id] = new_task
 
     def _on_window_close(self, screen, window):
         if not self._is_eligible_window(window):
@@ -83,23 +170,9 @@ class ScreenManager(object):
         window_id = window.get_xid()
         log.debug('Window %d closed.', window_id)
 
-        task_id = str(window_id)
-        if task_id in self.tasks:
-            task = self.tasks[task_id]
-            task['is_open'] = False
-            task['last_update_ts'] = long(time())
-
-        if task_id in self.windows_by_task_id:
-            window = self.windows_by_task_id[task_id]
-            if window_id in self.window_handler_ids:
-                window.disconnect(self.window_handler_ids[window_id])
-                del self.window_handler_ids[window_id]
-
-            del self.windows_by_task_id[task_id]
-
-    def _ensure_initialized(self):
-        if not self.initialized:
-            raise Exception('ScreenManager is not initialized!')
+        if window_id in self.tasks:
+            task = self.tasks[window_id]
+            task.close()
 
     def initialize(self):
         """Should be called before use."""
@@ -107,16 +180,12 @@ class ScreenManager(object):
             return
 
         self.screen.force_update()
-        self.icons = {}
-        seed_ts = long(time())
         for window in ifilter(self._is_eligible_window, self.screen.get_windows()):
-            task = self._window_to_task(window, seed_ts)
-            self.tasks[task['id']] = task
-            self.windows_by_task_id[task['id']] = window
-            self._connect_window_signals(window)
+            task = Task(window, self.icon_cache)
+            self.tasks[window.get_xid()] = task
 
         log.info('ScreenManager initialized with %d tasks and %d icons.',
-            len(self.tasks), len(self.icons))
+            len(self.tasks), self.icon_cache.size)
     
         self.screen.connect('window-opened', self._on_window_open)
         self.screen.connect('window-closed', self._on_window_close)
@@ -124,24 +193,23 @@ class ScreenManager(object):
 
     def list_tasks(self):
         self._ensure_initialized()
-        return self.tasks.values()
+        return map(lambda task: task.to_json(), self.tasks.values())
 
     def get_icon(self, icon_id):
         self._ensure_initialized()
-        return self.icons.get(icon_id, {})
+        return self.icon_cache.fetch(icon_id)
 
     def activate_task(self, task_id):
         self._ensure_initialized()
-        if task_id in self.windows_by_task_id:
-            window = self.windows_by_task_id[task_id]
-
+        window_id = long(task_id)
+        if window_id in self.tasks:
+            task = self.tasks[window_id]
             def impl():
-                window.activate(long(time()))
+                task.focus()
 
             GLib.idle_add(impl)
 
             return True
 
         return False
-
 
