@@ -4,7 +4,11 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.ImageView;
 
+import com.slothbucket.blackduck.common.FluentLog;
+
 public class TaskIconView extends ImageView {
+    private static final FluentLog logger = FluentLog.loggerFor("blackduck", TaskIconView.class);
+
     public TaskIconView(Context context) {
         super(context);
     }

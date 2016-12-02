@@ -9,7 +9,7 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.slothbucket.blackduck.MainActivity">
 
-    <GridView
+    <com.slothbucket.blackduck.TaskItemGridView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_alignParentTop="true"

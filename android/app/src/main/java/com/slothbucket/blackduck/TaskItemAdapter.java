@@ -4,40 +4,17 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
 
-import com.slothbucket.blackduck.client.BlackDuckService;
-import com.slothbucket.blackduck.client.Constants;
-import com.slothbucket.blackduck.client.RequestPayload;
-import com.slothbucket.blackduck.client.ServiceRequest;
+import com.slothbucket.blackduck.common.FluentLog;
 import com.slothbucket.blackduck.common.Preconditions;
 import com.slothbucket.blackduck.models.Task;
 import com.slothbucket.blackduck.models.TaskIcon;
 import com.slothbucket.blackduck.models.TaskStateManager;
 
 class TaskItemAdapter extends BaseAdapter {
-    static class TaskItemClickListener implements AdapterView.OnItemClickListener {
-        @Override
-        public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-            TaskItemAdapter adapter = (TaskItemAdapter) adapterView.getAdapter();
-            Task task = (Task) adapter.getItem(i);
-
-            if (task != null) {
-                ServiceRequest serviceRequest =
-                    ServiceRequest.builder()
-                        .setRequestId(RequestConstants.REQUEST_ACTIVATE_TASK)
-                        .setCommand(Constants.COMMAND_ACTIVATE_TASK)
-                        .setPayload(
-                            RequestPayload.builder()
-                                .setTaskId(task.id())
-                                .build())
-                        .build();
-                BlackDuckService.sendRequest(view.getContext(), serviceRequest);
-            }
-        }
-    }
+    private static final FluentLog logger = FluentLog.loggerFor("blackduck", TaskItemAdapter.class);
 
     private final TaskStateManager taskStateManager;
     private final LayoutInflater inflater;
@@ -85,6 +62,18 @@ class TaskItemAdapter extends BaseAdapter {
         }
         titleView.setText(getDisplayText(task));
         return view;
+    }
+
+    boolean onFlingItemUp(int itemId) {
+        Task task = (Task)getItem(itemId);
+        logger.atDebug().log("Flung item %s", task.title());
+        return true;
+    }
+
+    boolean onFlingItemDown(int itemId) {
+        Task task = (Task)getItem(itemId);
+        logger.atDebug().log("Flung item %s", task.title());
+        return true;
     }
 
     private static String getDisplayText(Task task) {

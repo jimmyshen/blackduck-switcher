@@ -114,11 +114,10 @@ public class MainActivity extends AppCompatActivity {
             .registerReceiver(serviceReceiver, intentFilter);
 
         // Configure grid view.
-        GridView taskGridView = (GridView) findViewById(R.id.task_grid);
-        taskGridView.setNumColumns(
+        TaskItemGridView taskItemGridView = (TaskItemGridView) findViewById(R.id.task_grid);
+        taskItemGridView.setNumColumns(
             getNumColumnsForOrientation(getResources().getConfiguration().orientation));
-        taskGridView.setAdapter(new TaskItemAdapter(this, taskStateManager));
-        taskGridView.setOnItemClickListener(new TaskItemAdapter.TaskItemClickListener());
+        taskItemGridView.setAdapter(new TaskItemAdapter(this, taskStateManager));
 
         progressDialog = new ProgressDialog(this, ProgressDialog.STYLE_SPINNER);
         initializeBluetooth();
