@@ -33,8 +33,8 @@ class TaskItemGridView extends GridView {
                         int itemId = getItemIdByCoordinate((int)e1.getX(), (int)e1.getY());
                         if (itemId >= 0) {
                             return (diffY < 0)
-                                ? getTaskItemAdapter().onFlingItemDown(itemId)
-                                : getTaskItemAdapter().onFlingItemUp(itemId);
+                                ? getTaskItemAdapter().onFlingItemUp(itemId)
+                                : getTaskItemAdapter().onFlingItemDown(itemId);
                         }
                     }
                     return false;

@@ -7,6 +7,10 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
 
+import com.slothbucket.blackduck.client.BlackDuckService;
+import com.slothbucket.blackduck.client.Constants;
+import com.slothbucket.blackduck.client.RequestPayload;
+import com.slothbucket.blackduck.client.ServiceRequest;
 import com.slothbucket.blackduck.common.FluentLog;
 import com.slothbucket.blackduck.common.Preconditions;
 import com.slothbucket.blackduck.models.Task;
@@ -16,10 +20,13 @@ import com.slothbucket.blackduck.models.TaskStateManager;
 class TaskItemAdapter extends BaseAdapter {
     private static final FluentLog logger = FluentLog.loggerFor("blackduck", TaskItemAdapter.class);
 
+    private final Context context;
     private final TaskStateManager taskStateManager;
     private final LayoutInflater inflater;
 
     TaskItemAdapter(Context context, TaskStateManager taskStateManager) {
+        super();
+        this.context = context;
         this.taskStateManager = Preconditions.checkNotNull(taskStateManager);
         this.inflater = LayoutInflater.from(context);
     }
@@ -65,15 +72,35 @@ class TaskItemAdapter extends BaseAdapter {
     }
 
     boolean onFlingItemUp(int itemId) {
-        Task task = (Task)getItem(itemId);
-        logger.atDebug().log("Flung item %s", task.title());
-        return true;
+        Task task = (Task) getItem(itemId);
+        if (task != null) {
+            scaleTask(task.id(), "maximize");
+            return true;
+        }
+        return false;
     }
 
     boolean onFlingItemDown(int itemId) {
-        Task task = (Task)getItem(itemId);
-        logger.atDebug().log("Flung item %s", task.title());
-        return true;
+        Task task = (Task) getItem(itemId);
+        if (task != null) {
+            scaleTask(task.id(), "unmaximize");
+            return true;
+        }
+        return false;
+    }
+
+    private void scaleTask(String taskId, String scaleAction) {
+         ServiceRequest serviceRequest =
+            ServiceRequest.builder()
+                .setRequestId(RequestConstants.REQUEST_SCALE_TASK)
+                    .setCommand(Constants.COMMAND_SCALE_TASK)
+                    .setPayload(
+                        RequestPayload.builder()
+                        .setTaskId(taskId)
+                        .setScaleAction(scaleAction)
+                        .build())
+                .build();
+        BlackDuckService.sendRequest(context, serviceRequest);
     }
 
     private static String getDisplayText(Task task) {

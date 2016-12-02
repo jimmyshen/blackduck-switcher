@@ -7,6 +7,7 @@ final class RequestConstants {
     static final int REQUEST_FETCH_ICONS_INITIAL = 4;
     static final int REQUEST_FETCH_ICONS_SYNC = 5;
     static final int REQUEST_ACTIVATE_TASK = 6;
+    static final int REQUEST_SCALE_TASK = 7;
 
     private RequestConstants() {}
 }

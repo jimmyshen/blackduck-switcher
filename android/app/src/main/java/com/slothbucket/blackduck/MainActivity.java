@@ -92,6 +92,9 @@ public class MainActivity extends AppCompatActivity {
                     case RequestConstants.REQUEST_ACTIVATE_TASK:
                         logger.atDebug().log("Task activation succeeded.");
                         break;
+                    case RequestConstants.REQUEST_SCALE_TASK:
+                        logger.atDebug().log("Task scaling succeeded.");
+                        break;
                     default:
                         logger.atWarning().log(
                             "Unhandled service response from request ID %d", response.requestId());

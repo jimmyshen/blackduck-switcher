@@ -24,6 +24,9 @@ public abstract class RequestPayload implements Parcelable {
     @JsonProperty("last_update_ts")
     public abstract long lastUpdateTimestamp();
 
+    @JsonProperty("scale_action")
+    public abstract String scaleAction();
+
     @AutoValue.Builder
     public abstract static class Builder {
         @JsonProperty("task_id")
@@ -35,9 +38,13 @@ public abstract class RequestPayload implements Parcelable {
         @JsonProperty("last_update_ts")
         public abstract Builder setLastUpdateTimestamp(long lastUpdateTimestamp);
 
+        @JsonProperty("scale_action")
+        public abstract Builder setScaleAction(String scaleAction);
+
         abstract String taskId();
         abstract List<String> iconIds();
         abstract long lastUpdateTimestamp();
+        abstract String scaleAction();
         abstract RequestPayload autoBuild();
 
         public RequestPayload build() {
@@ -57,6 +64,12 @@ public abstract class RequestPayload implements Parcelable {
                 lastUpdateTimestamp();
             } catch (IllegalStateException expected) {
                 setLastUpdateTimestamp(0);
+            }
+
+            try {
+                scaleAction();
+            } catch (IllegalStateException expected) {
+                setScaleAction("");
             }
 
             return autoBuild();

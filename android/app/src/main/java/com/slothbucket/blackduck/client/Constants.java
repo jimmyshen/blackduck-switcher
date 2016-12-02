@@ -7,6 +7,7 @@ public final class Constants {
     public static final String COMMAND_BATCHGET_ICONS = "batchget_icons";
     public static final String COMMAND_LIST_UPDATED_TASKS = "list_updated_tasks";
     public static final String COMMAND_ACTIVATE_TASK = "activate_task";
+    public static final String COMMAND_SCALE_TASK = "scale_task";
 
     // Actions
     public static final String ACTION_CONNECT_DEVICE = pkgAction("CONNECT_DEVICE");
