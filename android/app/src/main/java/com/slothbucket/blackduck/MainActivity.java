@@ -39,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
 
     // TODO: Implement automatic device discovery (SDP keeps cycling my adapter!).
     private static final String BT_DEVICE_MAC = "00:02:5B:05:7A:CA";
+    private static final long REFRESH_PERIOD_SECONDS = 3;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final TaskStateManager taskStateManager = new TaskStateManager();
@@ -209,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
 
         logger.atDebug().log("Processing icon results.");
         if (isInitialLoad) {
-            schedulePeriodicTaskRefresher(5);
+            schedulePeriodicTaskRefresher();
             refreshTaskDisplay();
             progressDialog.dismiss();
         } else {
@@ -231,7 +232,7 @@ public class MainActivity extends AppCompatActivity {
         BlackDuckService.sendRequest(this, request);
     }
 
-    private void schedulePeriodicTaskRefresher(int periodSeconds) {
+    private void schedulePeriodicTaskRefresher() {
         if (periodicRefreshTask != null) {
             logger.atError().log("Periodic refresh already scheduled!");
             return;
@@ -253,8 +254,8 @@ public class MainActivity extends AppCompatActivity {
                     BlackDuckService.sendRequest(MainActivity.this, request);
                 }
             },
-            periodSeconds,
-            periodSeconds,
+            REFRESH_PERIOD_SECONDS,
+            REFRESH_PERIOD_SECONDS,
             TimeUnit.SECONDS);
     }
 
