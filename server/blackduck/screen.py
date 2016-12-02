@@ -108,6 +108,16 @@ class Task(object):
         if self.window and self.is_open:
             self.window.activate(now())
 
+    def maximize(self):
+        if self.window:
+            self.focus()
+            self.window.maximize()
+
+    def unmaximize(self):
+        if self.window:
+            self.focus()
+            self.window.unmaximize()
+
     def close(self):
         self.is_open = False
         self._bump_update_time()
@@ -199,17 +209,26 @@ class ScreenManager(object):
         self._ensure_initialized()
         return self.icon_cache.fetch(icon_id)
 
-    def activate_task(self, task_id):
+    def _idle_task_action(self, task_id, action_name):
         self._ensure_initialized()
         window_id = long(task_id)
         if window_id in self.tasks:
             task = self.tasks[window_id]
+            action = getattr(task, action_name)
             def impl():
-                task.focus()
+                action()
 
             GLib.idle_add(impl)
-
             return True
 
         return False
+
+    def activate_task(self, task_id):
+        return self._idle_task_action(task_id, 'focus')
+
+    def maximize_task(self, task_id):
+        return self._idle_task_action(task_id, 'maximize')
+
+    def unmaximize_task(self, task_id):
+        return self._idle_task_action(task_id, 'unmaximize')
 

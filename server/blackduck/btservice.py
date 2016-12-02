@@ -23,6 +23,7 @@ class Command:
     LIST_UPDATED_TASKS = 'list_updated_tasks'
     BATCHGET_ICONS = 'batchget_icons'
     ACTIVATE_TASK = 'activate_task'
+    SCALE_TASK = 'scale_task'
 
 
 class Context(object):
@@ -140,6 +141,31 @@ class ActivateTaskHandler(Handler):
             return self.server_error_response(e, 'Internal error activating task.')
 
 
+class ScaleTaskHandler(Handler):
+    def __init__(self, context):
+        super(ScaleTaskHandler, self).__init__(context)
+
+    def handle(self, payload):
+        if 'task_id' not in payload:
+            return self.client_error_response('Missing "task_id" in payload.')
+        elif 'scale_action' not in payload:
+            return self.client_error_response('Missing "action" in payload.')
+        elif payload['scale_action'] not in ('maximize', 'unmaximize'):
+            return self.client_error_response(
+                'Invalid options for "scale_action"; must be either "maximize" or "unmaximize"')
+
+        try:
+            task_id = payload['task_id']
+            scale_action = payload['scale_action']
+            if scale_action == 'maximize':
+                self.context.screen_manager.maximize_task(task_id)
+            elif scale_action == 'unmaximize':
+                self.context.screen_manager.unmaximize_task(task_id)
+            return self.ok_response()
+        except Exception as e:
+            return self.server_error_response(e, 'Internal error scaling task.')
+
+
 class HandlerFactory(object):
     def __init__(self, parent):
         self.parent = parent
@@ -148,6 +174,7 @@ class HandlerFactory(object):
             Command.LIST_UPDATED_TASKS: ListUpdatedTasksHandler,
             Command.BATCHGET_ICONS: BatchGetIconsHandler,
             Command.ACTIVATE_TASK: ActivateTaskHandler,
+            Command.SCALE_TASK: ScaleTaskHandler,
         }
 
     def create(self, command_name, request_id):
